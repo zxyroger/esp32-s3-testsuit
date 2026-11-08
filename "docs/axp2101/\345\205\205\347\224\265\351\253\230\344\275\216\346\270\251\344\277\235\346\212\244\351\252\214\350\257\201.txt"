@@ -1,0 +1,125 @@
+1.主题
+ AXP2101_充电高低温保护功能验证
+  
+2.问题背景
+ 背景：验证AXP2101的高低温充电保护功能，在低于/高于一定温度时（T2 T3），首先充电电流会降
+低，在更低/高的温度（T1 T4）就会直接停止充电。本文将介绍如何配置该功能，遇到功能异常时
+该如何debug。
+ 
+ 
+ 
+~注：axp2202/803/806等芯片也可以参考本文，但可能寄存器位置不一样。~
+ 
+这里以Tina系统的R853方案中，充电高低温保护功能无法生效的debug流程作为例子进行阐述。 
+硬件：R853 + AXP2101 
+软件：Tina4.0
+  
+3.问题描述  
+3.1复现步骤
+ 
+使用温箱、热风枪等方法，将电池电池加热到dts中配置的T2和T3温度，然后使用万用表测量充电的
+电流大小。
+ 
+AXP2101_充电高低温保护功能验证
+第 1 页 /共
+ 6 页
+全志科技FAQ2107
+AXP2101_充电高低温保护功能验证3.2具体表现
+ 
+发现温度提升到设置的T3的温度之后，充电电流没有下降，升至T4时，并没有停止充电。
+  
+4.问题分析
+ 对于AXP来说，充电高低温保护功能都是硬件上实现的，软件进行配置完成后，硬件就可以自行工
+作了，如果功能没有正常工作，需要对配置进行检查。 
+1、检查dts
+ 
+ 
+ 
+pmu_bat_temp_enable：写1使能电池温度影响充电的功能，高低温停止充电功能。
+ 
+pmu_jetia_en：写1使能jeita协议，高低温降低充电电流功能。
+AXP2101_充电高低温保护功能验证
+第 2 页 /共
+ 6 页
+全志科技FAQ2107
+AXP2101_充电高低温保护功能验证2、检查寄存器 
+~可配合一号通中AXP2101_Datasheet_V1.4的寄存器描述进行debug。~ 
+pmu_bat_temp_enable：对应的是寄存器0x50的bit4，写0才是使能电池温度影响充电的功能（与dts中
+不一样，dts写1，这里是需要写0）
+ 
+pmu_jetia_en：对应的寄存器0x58的bit0，写1就是使能jeita协议功能。
+  
+5.根本原因
+ 对于“Tina系统的R853方案中，充电高低温保护功能无法生效”的问题来说，就是软件设计有问题
+。dts中pmu_bat_temp_enable设置为1，axp2101-battery.c中0x50的bit4也是写1。所以最终也就导致了电
+池温度无法影响到充电功能。
+ 
+查看代码：lichee/linux-4.9/drivers/power/supply/axp2101_battery.c，如下图。
+ 
+ 
+  
+6.解决办法 最终修改补丁：
+ 
+AXP2101_充电高低温保护功能验证
+第 3 页 /共
+ 6 页
+全志科技FAQ2107
+AXP2101_充电高低温保护功能验证diff --git a/drivers/power/supply/axp2101_battery.c b/drivers/power/supply/axp2101_battery.c
+index 3e52d87ec5a1..365790345a6e 100644
+--- a/drivers/power/supply/axp2101_battery.c
++++ b/drivers/power/supply/axp2101_battery.c
+@@ -1078,7 +1078,7 @@ int axp2101_init_chip(void *data)
+                regmap_update_bits(bat_power->regmap, AXP2101_VBAT_H, GENMASK(7, 6), 0);
+                regmap_update_bits(bat_power->regmap, AXP2101_TS_H, BIT(6), 0);
+                /* enable ts cfg*/
+-               regmap_update_bits(bat_power->regmap, AXP2101_TS_CFG, BIT(4), BIT(4));
++               regmap_update_bits(bat_power->regmap, AXP2101_TS_CFG, BIT(4), 0);
+                regmap_update_bits(bat_power->regmap, AXP2101_TS_CFG, GENMASK(3, 2), 0x0c);
+                /* set ts curr */
+                regmap_read(bat_power->regmap, AXP2101_TS_CFG, &reg_value);
+ 
+ 
+在确保上章节《问题分析》的dts和寄存器配置后，可以将高温的温度参数降低，这样的话就可以不
+需要额外的工具来提升电池温度了。
+ 
+AXP2101_充电高低温保护功能验证
+第 4 页 /共
+ 6 页
+全志科技FAQ2107
+AXP2101_充电高低温保护功能验证-
+-
+-
+-
+ 
+ 
+T1对应的是：pmu_bat_charge_ltf，低于该温度停充
+T2对应的是：pmu_jetia_cool，低于该温度降低充电电流
+T3对应的是：pmu_jetia_warm，高于该温度降低充电电流
+T4对应的是：pmu_bat_charge_htf，高于该温度停充
+ 
+可以将T4设置低于室温的数值，这样的话，系统一启动就是停充的状态，就可以确认到“高低温保
+护”功能是否生效。
+ 
+由pmu_bat_tmp_para可以看到，电池20度对应的参数为605，当前室温为25~30度。因此设置该参数
+就可以触发停充。 
+注：pmu_bat_charge_htf设置的最小值是511，低于该值的都默认设置为511，即温度10~20度之间。 
+另外，pmu_jetia_warm必须比pmu_bat_charge_htf设置要低，pmu_bat_charge_htf设置20度
+，pmu_jetia_warm可以设置为10度。否则，高温保护功能会异常。
+ 
+AXP2101_充电高低温保护功能验证
+第 5 页 /共
+ 6 页
+全志科技FAQ2107
+AXP2101_充电高低温保护功能验证++除了万用表测量实际的充电电流的方法来确认停充，这里还提供另外一种方法++： 
+1、使用i2c读取axp2101的充电状态寄存器，0x01[2:0]，如果bit0~bit2为101[B]，那证明当前的状态是
+not charge 
+2、当然axp2101-battery的驱动还提供了节点，cat /sys/class/power_supply/batter/status，就可以读取当前
+的充电状态。
+ 
+基于以上方法，即可自行验证 充电保护功能 。
+ 
+AXP2101_充电高低温保护功能验证
+第 6 页 /共
+ 6 页
+全志科技FAQ2107
+AXP2101_充电高低温保护功能验证

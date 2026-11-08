@@ -1,0 +1,2196 @@
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 1
+AXP2101 Single Cell NVDC PMU(SWcharge) with E-gauge
+1 Features
+ 3.9V–5.5V Input Operating Range and Support
+single Cell Battery
+ Battery fuel gauge: E gauge 3.0
+ Support TWSI(Two Wire Serial Interface) and
+RSB(Reduced Serial Bus)
+ Support high efficiency 1uH inductor buck mode
+switch charger(customization), 85%@5V-3.8V-1A,
+Ichg can be up to 1.5A
+ Single input to support USB input
+ High battery discharge efficiency with 50 mOhm
+ High integration includes all MOSFETS, current
+sensing and loop compensation
+ Power off current <40uA（BATFET off，RTCLDO
+output on）
+ 4 DCDCs
+DCDC1:1.5~3.4V, IMAX=2A
+DCDC2: 0.5~1.2V, 1.22~1.54V, IMAX=2A
+DCDC3: 0.5~1.2V, 1.22~1.54V, IMAX=2A
+DCDC4: 0.5~1.2V, 1.22~1.84V, IMAX=1.5A
+ 11 LDOs
+RTCLDO1/2: 1.8V/2.5V/3V/3.3V, 30mA;
+Support RTCLDO1 supplied by backup battery
+(button battery)
+ALDO1~4: analog LDO, 0.5~3.5V, 0.1V/step,
+IMAX=300mA
+BLDO1/2: analog LDO,0.5~3.5V, 0.1V/step,
+IMAX=300mA
+CPUSLDO: for CPUs, 0.5~1.4V, IMAX=30mA
+DLDO1/2: analog LDO or power switch, 0.5~3.3V/
+0.5~1.4V, IMAX=300mA
+ startup sequence and default voltage of
+DCDC/LDO setting
+ Protection
+Input Over-Voltage Protection
+Battery Thermistor Sense Hot/Cold to suspend
+Charging
+Programmable Safety Timer for Charger
+Die Thermal Balance for Charger
+Thermal Shutdown
+DCDC Over-Voltage/Under-Voltage Protection
+2 Applications
+ SDV, CDR, IPC, smart doorbell, smart speaker
+3 Description
+AXP2101 is a highly integrated power
+management IC (PMIC) targeting at single cell
+Li-battery (Li-ion or Li-polymer) applications that
+require multi-channel power outputs. It provides
+an easy and flexible power management solution
+for multi-core processors to meet the complex
+and accurate requirements of power control.
+AXP2101 supports switch charge which function
+should be customized. Besides, it supports 15
+channel power outputs which include 4 channel
+DCDCs and 11 channel LDOs. To ensure the
+security and stability of the system, AXP2101
+provides multiple channels 14-bit ADC for
+voltage/temperature monitor and integrates
+protection circuits such as over-voltage
+protection (OVP), over-current protection (OCP)
+and over-temperature protection (OTP).
+Moreover, AXP2101 features a unique E-Gauge ™
+(Fuel Gauge) system, making power gauge easy
+and exact.
+AXP2101 supports TWSI and RSB for system to
+dynamically adjust output voltages, charge
+current and configure interrupt condition.
+Device Information
+Part Number Package Body Size
+AXP2101 QFN-40 5mm * 5mm
+Simplified Application Diagram
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 2
+Revision History
+Revision Date Author Description
+1.0 Nov. 04, 2022 AWA 1017 Initial version
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 3
+Contents
+1 Features ................................................................................................................................................................................................1
+2 Applications ......................................................................................................................................................................................... 1
+3 Description ........................................................................................................................................................................................... 1
+Revision History ......................................................................................................................................................................................2
+Contents ..................................................................................................................................................................................................3
+Figures ..................................................................................................................................................................................................... 5
+Tables ...................................................................................................................................................................................................... 6
+4 Pin Configuration and Functions ....................................................................................................................................................... 7
+5 Specifications .......................................................................................................................................................................................9
+5.1 Absolute Maximum Ratings
+(1)
+.................................................................................................................................................. 9
+5.2 ESD Ratings ................................................................................................................................................................................9
+5.3 Recommended Operating Conditions .................................................................................................................................... 9
+5.4 Thermal Information ................................................................................................................................................................ 9
+5.5 Electrical Characteristics ........................................................................................................................................................10
+6 Detail Description .............................................................................................................................................................................. 13
+6.1 Overview .................................................................................................................................................................................. 13
+6.2 Function Block Diagram ......................................................................................................................................................... 14
+6.3 TWSI Communication .............................................................................................................................................................15
+6.4 Power Path .............................................................................................................................................................................. 16
+6.5 Power On/Off and reset .......................................................................................................................................................... 16
+6.5.1 Power on reset(POR) .................................................................................................................................................... 16
+6.5.2 Power up from BAT .......................................................................................................................................................16
+6.5.3 Power up from VBUS .................................................................................................................................................... 16
+6.5.4 System power on/off management ............................................................................................................................ 17
+6.6 Multi-Power Outputs .............................................................................................................................................................. 19
+6.7 Charger .....................................................................................................................................................................................20
+6.7.1 Characteristics .............................................................................................................................................................. 20
+6.7.2 Charging condition ....................................................................................................................................................... 20
+6.7.3 Charging process ....................................................................................................................................................... 20
+6.7.4 Charging protection ..................................................................................................................................................... 21
+6.7.5 Charging indication ...................................................................................................................................................... 23
+6.8 BATFET ..................................................................................................................................................................................... 23
+6.9 RBFET ....................................................................................................................................................................................... 23
+6.10 ADC ......................................................................................................................................................................................... 23
+6.11 E-Gauge .................................................................................................................................................................................. 23
+6.12 IRQ /BACKUP ..........................................................................................................................................................................24
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 4
+6.12.1 IRQ ................................................................................................................................................................................ 24
+6.12.2 BACKUP ........................................................................................................................................................................24
+6.13 Register .................................................................................................................................................................................. 24
+6.13.1 Register List ................................................................................................................................................................. 24
+6.13.2 Register Description ................................................................................................................................................... 25
+7 Application Information ................................................................................................................................................................... 46
+7.1 Typical Application ................................................................................................................................................................. 46
+8 Package, Carrier, Storage and Baking Information ....................................................................................................................... 47
+8.1 Package ....................................................................................................................................................................................47
+8.2 Carrier .......................................................................................................................................................................................47
+8.3 Storage ..................................................................................................................................................................................... 48
+8.3.1 Moisture Sensitivity Level(MSL) ...................................................................................................................................48
+8.3.2 Bagged Storage Conditions ......................................................................................................................................... 49
+8.3.3 Out-of-bag Duration ..................................................................................................................................................... 49
+8.4 Baking ...................................................................................................................................................................................... 49
+9 Reflow Profile .....................................................................................................................................................................................50
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 5
+Figures
+Figure 4-1 Pin Map ...............................................................................................................................................................................7
+Figure 6-1 Function Block Diagram ................................................................................................................................................. 14
+Figure 6-2 Waveform of TWSI ........................................................................................................................................................... 15
+Figure 6-3 Timing of TWSI .................................................................................................................................................................15
+Figure 6-4 Sleep and Wakeup ...........................................................................................................................................................18
+Figure 7-1 Typical Application ......................................................................................................................................................... 46
+Figure 8-1 Package Information .......................................................................................................................................................47
+Figure 8-2 AXP2101 marking .............................................................................................................................................................47
+Figure 8-3 AXP2101 Tray Dimension Drawing .................................................................................................................................48
+Figure 9-1 AXP2101 Typical Reflow Profile ......................................................................................................................................50
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 6
+Tables
+Table 4-1 Pin Description ................................................................................................................................................................... 7
+Table 5-1 Absolute Maximum Ratings ...............................................................................................................................................9
+Table 5-2 ESD Ratings ......................................................................................................................................................................... 9
+Table 5-3 Recommended Operating Conditions ............................................................................................................................. 9
+Table 5-4 Thermal Metric ....................................................................................................................................................................9
+Table 5-5 Electrical Characteristics ................................................................................................................................................. 10
+Table 6-1 Read and write address of TWSI ..................................................................................................................................... 15
+Table 6-2 Timing constants ..............................................................................................................................................................15
+Table 6-3 Features of Multi-Power Outputs ....................................................................................................................................19
+Table 6-4 Charging Parameters ....................................................................................................................................................... 20
+Table 6-5 Relationship among temperature, equivalent resistance, detected voltage and ADC data .................................... 22
+Table 6-6 CHGLED Function Control ............................................................................................................................................... 23
+Table 6-7 ADC Channel and Data ..................................................................................................................................................... 23
+Table 8-1 AXP2101 Marking Definitions ...........................................................................................................................................47
+Table 8-2 AXP2101 Tray Carrier Information .................................................................................................................................. 47
+Table 8-3 AXP2101 Packing Quantity Information .........................................................................................................................48
+Table 8-4 MSL Summary ................................................................................................................................................................... 48
+Table 8-5 Bagged Storage Conditions .............................................................................................................................................49
+Table 8-6 Out-of-bag Duration .........................................................................................................................................................49
+Table 8-7 Baking Conditions ............................................................................................................................................................ 49
+Table 9-1 AXP2101 Reflow Profile Conditions ................................................................................................................................ 50
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 7
+4 Pin Configuration and Functions
+Figure 4-1 Pin Map
+Table 4-1 Pin Description
+NO. Pin Name Type Description
+1 CHGLED AO Charge status output to indicate various charger operation.
+2 VREF P Internal reference voltage
+3 GND AI Analog ground for interrupt analog and digital circuits.
+4 FB3 P DCDC3 feedback pin
+5 LX3 P Inductor pin for DCDC3
+6 VIN3 P DCDC3 input source
+7 VIN4 P DCDC4 input source
+8 LX4 P Inductor pin for DCDC4
+9 FB4 P DCDC4 feedback pin and Switch input source
+10 CPUSLDO P Output pin of CPUSLDO
+11 DLDO2/DC4SW DO Output pin of DLDO2,and can be configured as the Output pin of DC4SW
+12 BLDO1 P Output pin of BLDO1
+13 BLDOIN P BLDO input source
+14 BLDO2 P Output pin of BLDO2
+15 ALDO4 P Output pin of ALDO4
+16 ALDO3 P Output pin of ALDO3
+17 ALDOIN P ALDO input source, should be connected to VSYS pin
+18 ALDO1 P Output pin of ALDO1
+19 ALDO2 P Output pin of ALDO2
+20 DLDO1/DC1SW P Output pin of DLDO1,and can be configured as the Output pin of DC1SW
+21 FB1 P DCDC1 feedback pin
+22 LX1 P Inductor pin for DCDC1
+23 VIN1 P DCDC1 input source
+24 VIN2 P DCDC2 input source
+25 LX2 P Inductor pin for DCDC2
+26 FB2 AI DCDC2 feedback pin
+27 VBACKUP P Input pin of backup battery
+28 VRTC P RTC power output
+29 PWROK DIO Power good indication output
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 8
+30 PWRON DIO Power On-Off key input, Internal 100k pull up to VINT.
+Can be customized as EN pin.
+31 TS AI
+Temperature qualification voltage input.
+Connect a negative temperature coefficient thermistor from TS to GND.
+A current source is injected to TS pin and convert TS voltage to a digital
+code. Charging suspends when TS pin is out of range.
+Besides, TS can be connected to external input signal.
+32 GPIO1 DIO Output pin of GPIO1(open drain) and can be configured as the Output
+pin of RTCLDO2 by customization.
+33 BAT P
+Battery connection point.
+The internal BATFET is connected between BAT and SYS.
+Connect a 1uF capacitor closely to the BAT pin.
+34 VSYS P
+System connection point.
+The internal BATFET is connected between BAT and SYS. Connect two
+22uF capacitors closely to the SYS pin.
+35 SW P Inductor pin for Buck
+36 VMID P VMID Power output
+37 VBUS P VBUS input
+38 IRQ DIO
+Open-drain interrupt Output.
+Connect the IRQ to a logic rail via a 4.7kΩ resistor. The IRQ pin sends a
+low level signal to host to report charger device status and fault.
+39 SDA DIO Data pin for serial interface, needs a 2.2kΩ Pull High.
+40 SCK DI SCK pin for serial interface, needs a 2.2kΩ Pull High.
+EP EP GND Exposed Pad, needs to be connected to system ground
+(1)O for output, I for input, IO for input/output, D for digital, A for analog, P for power, and G for ground.
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 9
+5 Specifications
+5.1 Absolute Maximum Ratings
+(1)
+Table 5-1 Absolute Maximum Ratings
+Over operating free-air temperature range (unless otherwise noted)
+SYMBOL DESCRIPTION MIN MAX UNIT
+VBUS
+Voltage range(with respect to GND)
+-0.3 12 V
+Others pin (exp VBUS,
+PGND, GND)
+-0.3 7 V
+-0.3 7 V
+PGND to GND -0.3 0.3 V
+Ta Operating Temperature Range -40 85 ℃
+TJ Junction Temperature Range -40 125 ℃
+Ts Storage Temperature Range -65 150 ℃
+TLEAD Maximum Soldering Temperature (at
+leads，10sec)
+300 ℃
+(1) Stresses beyond those listed under absolute maximum ratings may cause permanent damage to the device.
+These are stress ratings only. Functional operation of the device at these or any other conditions beyond those
+indicated under recommended operating conditions is not implied. Exposure to absolute maximum rated
+conditions for extended periods may affect device reliability.
+5.2 ESD Ratings
+Table 5-2 ESD Ratings
+VALUE UNIT
+VESD
+Human body model(HBM)
+(1)
+±4000 V
+Charged device model(CDM)
+(2)
+±750 V
+(1) Reference: ESDA/JEDEC JS-001-2017.
+(2) Reference: ESDA/JEDEC JS-002-2018.
+5.3 Recommended Operating Conditions
+Table 5-3 Recommended Operating Conditions
+SYMBOL DESCRIPTION MIN MAX UNIT
+VIN Input voltage(VBUS) 3.9 5.5 V
+IIN Input current(VBUS) 2 A
+ISYS Output current 2 A
+VBAT Battery voltage 4.4 V
+IBAT charging current 1.5 A
+5.4 Thermal Information
+Table 5-4 Thermal Metric
+Thermal Metric
+(1)
+VALUE UNIT
+θJA Junction-to-ambient thermal resistance 30
+℃/WθJB Junction-to-board thermal resistance 10.8
+θJC Junction-to-case(top) thermal resistance 22.8
+(1)Thermal metrics are calculated refer to JEDEC document JESD51.
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 10
+5.5 Electrical Characteristics
+Table 5-5 Electrical Characteristics
+Symbol Parameters Test Conditions MIN TYP MAX UNIT
+QUIESCENT CURRENTS
+IBAT Battery discharge current no VBUS, BATFET Disabled, with
+only RTCLDO on 40 uA
+VBUS/BAT POWER UP
+VVBUS VBUS operating range 3.9 5.5 V
+VVBUS_UVLOZ VBUS under voltage threshold 3.75 V
+VVBUS_OV
+VBUS over-voltage rising
+threshold 7 V
+VSLEEPZ
+Sleep mode rising threshold
+(VBUS-VBAT) 150 mV
+VBAT VBAT operating range 2.5 4.4 V
+VBAT_UVLOZ VBAT under voltage threshold 2.4 V
+VBAT_DPLZ VBAT depletion threshold 2.5 V
+Battery Charger
+VBATREG_RANGE Typical Charge voltage range VBATREG= 4.0/ 4.1/ 4.2/ 4.35/ 4.4V 4.0 4.4 V
+VBATREG
+Charge voltage resolution
+accuracy VBAT = 4.2V, TJ = 25℃ -0.50% 0.50%
+ICHG_REG_RANGE
+Typical Fast charge current
+regulation range
+VBATREG= 4.0/4.1V 0 1500
+mA
+VBATREG= 4.2V 0 1400
+VBATREG= 4.35V 0 1100
+VBATREG= 4.4V 0 1000
+ICHG_REG_ACC
+Fast charge current regulation
+accuracy ICHG=800mA,TJ = 25℃ -20% 20%
+VBATLOWV Battery low voltage threshold Fast charge to precharge 3 V
+IPRECHG_RANGE Precharge current range 0 200 mA
+IPRECHG_ACC Precharge current accuracy IPRECHG = 200mA,TJ = 25℃ -50% 50%
+ITERM_RANGE Termination current range 0 200 mA
+VTRICHG Battery trickle charge threshold VBAT falling 2 V
+ITRICHG Battery trickle charge current VBAT < 2 V 10 mA
+VRECHG
+Recharge Threshold below
+VBATREG VBAT falling 100 mV
+Input Voltage / Current Regulation
+VINDPM_RANGE
+Typical Input voltage regulation
+range 3.88 5.08 V
+VINDPM_ACC
+Input voltage regulation
+accuracy VINDPM=4.36V -3% 3%
+IINLIM_RANGE Input current regulation range 100 2000 mA
+IINDPM_ACC
+Input current regulation
+accuracy IINLIM =500mA 350 500 mA
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 11
+Symbol Parameters Test Conditions MIN TYP MAX UNIT
+DCDC
+DCDC1/2/3/4
+VIN Input Voltage 2.6 5.5 V
+UVP 85%
+OVP 130%
+Accuracy Output Accuracy
+Accuracy, PWM mode, VOUT<1V -30 30 mV
+Accuracy, PWM mode, VOUT>1V -3.00% 3.00%
+DCDC1
+VOUT Output Voltage
+Output Range 1.5 3.4 V
+Step Size 100 mV
+IOUT Output Load Current 2 A
+DCDC2
+VOUT Output Voltage
+Output Range 0.5 1.54 V
+Step Size, VOUT=0.5V~1.2V 10 mV
+Step Size, VOUT=1.22V~1.54V 20 mV
+IOUT Output Load Current 2 A
+DCDC3
+VOUT Output Voltage
+Output Range 0.5 1.54 V
+Step Size, VOUT=0.5V~1.2V 10 mV
+Step Size, VOUT=1.22V~1.54V 20 mV
+IOUT Output Load Current 2 A
+DCDC4
+VOUT Output Voltage
+Output Range 0.5 1.84 V
+Step Size, VOUT=0.5V~1.2V 10 mV
+Step Size, VOUT=1.22V~1.84V 20 mV
+IOUT Output Load Current 1.5 A
+LDO
+RTCLDO1/2
+VOUT
+Output Voltage VOUT=1.8/ 2.5/ 3/ 3.3V 1.8 3.3 V
+Output voltage accuracy -10% +10%
+IOUT Output Load Current 30 mA
+CPUSLDO
+VIN Input Voltage Input is DCDC4 0.8 1.84 V
+VOUT
+Output Voltage
+Output Range 0.5 1.4 V
+Step size 50 mV
+Output voltage accuracy
+Accuracy,VIN=0.8V~1.84V,
+VOUT<1V, Iload=10mA -30 30 mV
+Accuracy,VIN=0.8V~1.84V,
+VOUT>1V, Iload=10mA -3% 3%
+VDrop Dropout 300 mV
+IOUT Output Load Current 30 mA
+ILIM Current Limit 300 mA
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 12
+Symbol Parameters Test Conditions MIN TYP MAX UNIT
+ALDO1~4/BLDO1~2
+VIN Input Voltage 2.6 5.5 V
+VOUT
+Output Voltage
+Output Range 0.5 3.5 V
+Step size 100 mV
+Output voltage accuracy
+Accuracy, VOUT<1V, Iload=10mA -30 30 mV
+Accuracy, VOUT>1V, Iload=10mA -3% 3%
+VDrop Dropout 300 mV
+IOUT Output Load Current 300 mA
+ILIM Current Limit 500 mA
+DLDO1(DC1SW)
+VIN Input Voltage Input is DCDC1 1.8 3.4 V
+VOUT
+Output Voltage
+Output Range 0.5 3.3 V
+Step size 100 mV
+Output voltage accuracy
+Accuracy, VOUT<1V, Iload=10mA -30 30 mV
+Accuracy, VOUT>1V, Iload=10mA -3% 3%
+VDrop Dropout As LDO 300 mV
+IOUT Output Load Current 300 mA
+ILIM Current Limit 500 mA
+DLDO2(DC4SW)
+VIN Input Voltage Input is DCDC4 1.5 1.8 V
+VOUT
+Output Voltage
+Output Range 0.5 1.4 V
+Step size 100 mV
+Output voltage accuracy
+Accuracy, VOUT<1V, Iload=10mA -30 30 mV
+Accuracy, VOUT>1V, Iload=10mA -3% 3%
+VDrop Dropout As LDO 300 mV
+IOUT Output Load Current 300 mA
+ILIM Current Limit 500 mA
+TWI&IO
+TWI INTERFACE (SCL, SDA)
+VIH Input high threshold level, SCL
+and SDA 1.3 V
+VIL Input low threshold level 0.8 V
+VOL Output low threshold level Sink Current = 5mA, sink
+current 0.4 V
+Logic I/O pin Characteristics (IRQ/PWRON/PWROK)
+VIH Input high threshold level 1.3 V
+VIL Input low threshold level 0.8 V
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 13
+6 Detail Description
+6.1 Overview
+AXP2101 is a highly integrated power management IC (PMIC) targeting at single cell Li-battery (Li-ion or
+Li-polymer) applications that require multi-channel power outputs. It provides an easy and flexible power
+management solution for multi-core processors to meet the complex and accurate requirements of power
+control.
+AXP2101 supports switch charge which function should be customized. Besides, it supports 15 channel power
+outputs which include 4 channel DCDCs and 11 channel LDOs. To ensure the security and stability of the system,
+AXP2101 provides multiple channels 14-bit ADC for voltage/temperature monitor and integrates protection
+circuits such as over-voltage protection (OVP), over-current protection (OCP) and over-temperature protection
+(OTP). Moreover, AXP2101 features a unique E-Gauge™ (Fuel Gauge) system, making power gauge easy and
+exact.
+AXP2101 supports TWSI and RSB for system to dynamically adjust output voltages, charge current and configure
+interrupt condition.
+AXP2101 is available in 5mm x 5mm 40-pin QFN package.
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 14
+6.2 Function Block Diagram
+Figure 6-1 Function Block Diagram
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 15
+6.3 TWSI Communication
+AXP2101 supports TWSI protocol and performs as a TWSI slave device with default address 0x68/0x69. When
+AXP2101 powers on, SCK/SDA pin of TWSI will be pulled up to IO Power and then Host can adjust and monitor
+AXP2101 with rich feedback information.
+Besides, AXP2101 supports RSB for Allwinner platform with address 0x01D1 or 0x0273 by customer.
+Note: “Host” here refers to system processor.
+Figure 6-2 Waveform of TWSI
+Table 6-1 Read and write address of TWSI
+BYTE
+BIT
+MSB 6 5 4 3 2 1 0
+WRITE 0 1 1 0 1 0 0 0
+READ 0 1 1 0 1 0 0 1
+Figure 6-3 Timing of TWSI
+Table 6-2 Timing constants
+Parameter Symbol
+Stander mode Fast mode
+Unit
+MIN TYP MAX MIN TYP MAX
+SCK clock frequency Fsck 0 - 100 0 - 400 kHz
+Setup time in START Tsu-STA 4.7 - - 0.6 - - us
+Hold time in START Thd-STA 4.0 - - 0.6 - - us
+Setup time in Data Tsu-DAT 250 - - 100 - - ns
+Hold time in Data Thd-DAT 0 - - 0 - 0.9 us
+Setup time in STOP Tsu-STO 4.0 - - 0.6 - - us
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 16
+Parameter Symbol
+Stander mode Fast mode
+Unit
+MIN TYP MAX MIN TYP MAX
+SCK low level time Tlow 4.7 - - 1.3 - - us
+SCK high level time Thigh 4.0 - - 0.6 - - us
+SDA/SCK falling time Tf - - 300 20 - 300 ns
+SDA/SCK rising time Tr - - 1000 20 - 300 ns
+6.4 Power Path
+VBUS as the charger input, connecting to VSYS pin through a buck mode switch charger, provides power to
+system and charges battery through BATFET. Charge current can be adjusted automatically according to the
+feedback current which is detected with an internal resistor. When system current (ISYS) changes, the detected
+current will change, and then the current change signal will feed back to charge loop to adjust the charge current
+to the setting value.
+When battery voltage is above VSYS, BATFET is turned on and PMU enters supplement mode. When in supplement
+mode, if the discharge current is lower than 1A, PMU controls the voltage(VDS) between system and battery and
+keeps VDS at 30mV to avoid entering and exiting supplement mode repeatedly. As discharge current increases,
+PMU adjusts BATFET to be fully on and VDS increases linearly. If an adapter is not inserted, system current is
+provided only by battery. At this time, BATFET is at fully on state.
+6.5 Power On/Off and reset
+6.5.1 Power on reset(POR)
+AXP2101 is powered from the higher voltage between VBUS and BAT. When VBUS voltage(VVBUS) is higher than
+VVBUS_UVLOZ or BAT voltage(VBAT) is higher than VBAT_UVLOZ, the sleep comparator, battery depletion comparator and
+BATFET driver are be activated. All registers are reset to the default value. TWSI communication is active and Host
+can communicate with PMU.
+6.5.2 Power up from BAT
+If only battery is present and VBAT is higher than depletion threshold (VBAT_DPLZ), BATFET, connecting battery to
+system, is off by default and need to be turned on by pressing the PWRON key or inserting an adapter.
+6.5.3 Power up from VBUS
+When VBUS is inserted, PMU detects the input voltage to start up the reference voltage and the bias circuit. When
+VVBUS is higher than VVBUS_UVLOZ, the VBUS insertion IRQ is sent and the register bit reg49H[7] is set to 1 to indicate
+VBUS is inserted. Then PMU detects the input source whether it is good or not. If VBUS is good, the RBFET is open
+and Vsys is working.
+6.5.3.1 Good source condition
+PMU needs to check the current capability of the input source. Only when the input source meets the following
+requirements can it start the buck converter.
+a. VBUS voltage is lower than VACOV
+b. VBUS voltage is higher than VVBUSMIN when pulling IBADBUS(typical 30mA)
+Once the input source meets the requirements above,the register bit reg00H[5](VBUS_GOOD) is set to 1 to
+indicate the input source is good.
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 17
+6.5.3.2 Set input voltage limit(VINDPM)
+AXP2101 supports wide range of input voltage(3.9V~5.5V). VINDPM can be set through reg15H[3:0]. The range of
+VINDPM is from 3.88V to 5.08V and the step is 80mV.
+When VBUS voltage reaches VINDPM, the charge current will decrease automatically until the current is zero. If ISYS is
+over the input power supply capability, VSYS will drop. If VBAT is above VSYS, PMU will enter the supplement mode.
+6.5.3.3 Set input current limit(IINLIM)
+AXP2101 supports input current limit to avoid adaptor overload. IINLIM can be set as 100mA, 500mA, 900mA, 1A,
+1.5A and 2A through reg16H[2:0].
+6.5.4 System power on/off management
+PMU has power off and power on status. When at off state, all voltage outputs are turned off except RTCLDO . At
+this time, if only battery is present, the total power consumption is typically 40uA.
+6.5.4.1 Power on-off Key (POK)
+EN/PWRON pin can be configured as PWRON pin or EN pin by customization. The default is PWRON pin. The
+Power on-off Key (POK) can be connected between PWRON pin and GND of AXP2101. AXP2101 can automatically
+identify the four status (Long-press, Short-press, Negative edge, Positive edge) and then correspond respectively.
+6.5.4.2 Power on
+1. When EN/PWRON pin is configured as PWRON pin, power on sources include:
+1) POK. AXP2101 can be powered on by pressing and holding POK for a period of time that longer than
+“ONLEVEL”.
+2) VBUS low go high. The function can be configured by customization.
+3) VBAT low go high. The function can be configured by customization.
+4) IRQ Low level. IRQ pin is low level for more than 16ms, AXP2101 will be powered on.The function can be
+configured by customization.
+5) Battery is charged to normal (Vbat>3.3V and is charging). The function can be configured by customization.
+2. When EN/PWRON pin is customized as EN pin, AXP2101 can be powered on by EN pin from low to high(0.6V).
+After power on, DCDC and LDO will be soft booted in preset timing sequence. When IRQ low level power on,
+AXP2101 can be configured for fast power on by REG2B, and the DCDCs/LDOs start sequence can be configured
+by REG28H~REG2BH.
+6.5.4.3 Power Off
+1. When EN/PWRON pin is configured as PWRON pin, power off sources include:
+1) POK. AXP2101 can be powered off by pressing and holding POK for a period of time that longer than
+“OFFLEVEL”. The function can be configured by REG22H[1] and REG22H[3:2] decides whether the PMU auto
+turns on or not when it shuts down after OFFLEVEL POK.
+2) Write “1” to REG10H[0].
+3) VSYSGOOD high go low. When VSYS<VOFF or VBUS>7V, AXP2101 will be powered off. The default of VOFF is
+2.6V which can be configured by REG24H[2:0].
+4) The output voltage of DCDC is 15% lower than the setting value. The function can be configured by
+REG23H[4:0].
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 18
+5) The output voltage of DCDC is much larger than their setting. The function can be configured by REG23H[5].
+6) Die temperature is over the warning level2(145℃). The function can be configured by REG22H[2].
+2. When EN/PWRON pin is customized as EN pin, AXP2101 can be powered off by EN pin from high to low.
+6.5.4.4 Sleep and wakeup
+When the running system needs to enter Sleep mode, Maybe one or several power outputs should be disabled or
+changed to other voltage. Wakeup can be initiated by the following sources:
+1. Software wakeup (REG26H[1] is set to 1)
+2. IRQ pin wakeup (REG 26H[4] =1 and IRQ pin is low level for more than 16ms)
+These sources will make the all the PMU power outputs resume to the default voltage or the setting voltage,
+which is configured by REG26H[2], and all shutdown powers will resume by the startup sequence.
+See the control process under sleep and wakeup modes as below.
+Figure 6-4 Sleep and Wakeup
+Write “1” to REG26H [0] to start
+the Wakeup, and PMU will
+record the configuration of
+REG80H, REG90H,REG91H
+Write REG80H, REG90H, REG91H,
+Disable corresponding power or
+modify the voltage
+Sleep and wait to be Wakeup
+Wakeup
+sources
+All power resume to the
+default or setting voltage
+Y
+N
+6.5.4.5 Reset
+The PMU has system reset and power on reset.
+ System reset
+System reset means the registers will be reset when PMU is powered on. at system reset state, all voltage outputs
+are turned off except RTCLDO and VREF. There are three ways of system reset.
+PWROK drive low.
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 19
+The PWROK pin can be used as the reset signal of application system. During AXP2101 startup, PWROK outputs
+low level, which will be pulled up to startup the system after output voltage reaches the regulated value.
+When application system works normally, If the PWROK pin is driven low by external key or other reasons, the
+PMU will be restarted. The function can be configured by REG10H[3].
+1. Write “1” to REG10H[1] to restart the PMU.
+2. Watchdog timeout. The function can be configured by REG18H[0] and REG19H[5:4]
+ Power on reset
+Power on reset means the registers will be reset when PMU is powered up. at power on reset state, all voltage
+outputs are turned off including RTCLDO and VREF.
+6.6 Multi-Power Outputs
+The following table has listed the multi-power outputs and their functions of AXP2101.
+Table 6-3 Features of Multi-Power Outputs
+Output Path Type Default Voltage Startup
+Sequence
+Application
+Suggestion
+Load
+Capacity(Max)
+DCDC1 BUCK
+Customization Customization
+IO/USB 2000mA
+DCDC2 BUCK CPU 2000mA
+DCDC3 BUCK VSYS 2000mA
+DCDC4 BUCK DDR 1500mA
+ALDO1 LDO N/A 300mA
+ALDO2 LDO N/A 300mA
+ALDO3 LDO N/A 300mA
+ALDO4 LDO N/A 300mA
+BLDO1 LDO N/A 300mA
+BLDO2 LDO N/A 300mA
+DC1SW/DLDO1 Switch/LDO N/A 300mA
+DC4SW/DLDO2 Switch/LDO N/A 300mA
+CPUSLDO LDO CPUs/Reference of
+DDR 30mA
+RTC-LDO1 LDO RTC 30mA
+RTC-LDO2 LDO N/A 30mA
+AXP2101 includes 4 synchronous step-down DCDCs and 11 LDOs. The type of DLDO1 and DLDO2 is switch by
+default and can be customized as LDO. The input of DLDO1 is DCDC1. The input of DLDO2 and CPUSLDO is DCDC4.
+The work frequency of DCDC1/4 is 3MHz and DCDC2/3 is 1.5MHz. External small inductors and capacitors can be
+connected. In addition, DCDC1/2/3/4 can be set in fixed PWM mode or auto mode (automatically switchable
+according to the load). See register REG81H.
+DCDC2/3 has DVM enable option. In DVM mode, when there is a change in the output voltage, DCDC will change to
+the new targeted value step by step. It supports two kinds of DVM slope: 1 step/15.625us and 1step/31.250us. The
+slope can be chosen by REG80H[5].
+AXP2101 can configure the default voltage, the startup sequence and other control of all power output.
+Startup sequence: The startup sequence has eight levels from 0 to 7. When the sequence is 0, it means the output
+is booted at the first step. When the sequence code is 1, it means the output is booted at the second step. When
+the sequence is 7, it means the output is not booted.
+Default voltage setting: The default voltage of each channel can be set to each step within the output range.
+Note: The input of ALDOIN must be VSYS.
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 20
+6.7 Charger
+6.7.1 Characteristics
+ Range of input voltage:3.9V~5.5V, PWM charger, supports single cell Li-battery
+ Precharge current settable (IPRECHG, reg61H[3:0]), default:125mA, range: 0mA~200mA,step:25mA
+ Fast charge current settable (ICHG, reg62H[4:0]), default:300mA, range: 0mA~200mA, step:25mA,
+200~1500mA, step:100mA
+ Target charge voltage settable (VREG, reg64H[2:0]), default:4.2V, range: 4.0V/4.1V/4.2V/4.35V/4.4V
+ Accuracy of target voltage:±0.5%(testing ambient temperature:25℃,target voltage:4.2V)
+6.7.2 Charging condition
+ VBUS is present and available, VBUS>VBAT+VSLEEPZ
+ Input source detection is finished (reg00H[5] =1)
+ Charging is enabled (reg18H[1] =1)
+ Die temperature is lower than the warning level2(145℃)
+ When TS pin is used to detect battery temperature, battery temperature is within the chargeable range
+ VBAT is lower than VBAT_OVP
+ No charger safety timer fault
+6.7.3 Charging process
+When PMU meets all charging conditions, it can complete the whole charging process without the participation of
+Host. The charging status can be known from the register bits reg01H[2:0]. The default values of charging
+parameters are shown as following. Host can modify registers to optimize the values through TWSI.
+Table 6-4 Charging Parameters
+Parameter Default value
+Charging voltage 4.2V
+Charging current 300mA
+Pre-charging current 125mA
+Termination current 125mA
+Temperature profile Cold/hot
+Safety timer 12hours
+6.7.3.1 Pre-charge
+When VBAT is lower than VBATLOWV(3V), the charger is under pre-charge mode where charging current is limited to a
+value of IPRE-CHG. Safety time is set through reg67H[1:0] and its default value is 50 minutes. If pre-charge process
+times out, PMU will stop charging and send a corresponding IRQ to Host. The function of safety timer can be
+disabled through reg67H[2].
+6.7.3.2 Constant current charge
+Once VBAT is higher than VBATLOWV and lower than VREG, the charger is under constant current charge mode. It will
+charge with constant current ICHG.
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 21
+6.7.3.3 Constant voltage charge
+When VBAT reaches target voltage (VREG), the charger enters constant voltage charge mode. In this stage, the
+charger keeps the output voltage constant and step down charging current gradually, in order to fully charge
+battery.
+When VBAT is above VRECHG and the charging current reduces under termination current (ITERM), AXP2101 reports
+charger done, stops charging (charger enable bit is still 1) and turns off BATFET. Meanwhile, IRQ is sent to Host.
+When AXP2101 is in regulation of input current, input voltage or temperature, the function of charging
+termination configured through reg63H[4] is temporarily disabled and the speed of safety timer slows down.
+Whether to set safety timer during DPM or thermal regulation depends on reg67H[7].
+6.7.3.4 Re-charge
+After charge done, if VBAT falls below VRECHG, PMU will automatically enable charger without reinserting adapter.
+No matter whether VBAT is above VRECHG or not, the charger is enabled when an adapter is inserted.
+6.7.3.5 Battery detection
+As long as an adapter is present and usable, battery detection will be enabled to detect whether battery is
+connected. Battery detection function is enabled by default and can be disabled through reg68H[0]. If the
+function is disabled, PMU considers that battery is always present. The detection result is saved in reg00H[3]
+6.7.4 Charging protection
+6.7.4.1 charger safety timer
+Once starting pre-charge mode, PMU will enable timer1. If PMU cannot enter constant current charge mode from
+pre-charge within 50min (set through reg67H[1:0]), PMU will enter battery safe mode and send IRQ to indicate the
+battery may be damaged.
+When the charger enters into constant current charge mode, PMU will enable timer2. If PMU cannot finish the
+whole charge cycle within 12 hours (set through reg67H[5:4]), PMU will enter battery safe mode and send IRQ to
+indicate the battery may be damaged.
+If the actual current is lower than the setting value due to the VBUS DPM and thermal regulation, the timing speed
+of timer1 and timer2 will be halved.
+6.7.4.2 Battery safe mode
+In battery safe mode, the charger always charges with 10mA current. PMU can quit battery safe mode with one of
+the following methods:
+ VBAT>VRECHG
+ Adapter removal
+ Charger enable bit (reg18H[1]) is reset to 1
+ Safety timer1 enable bit or safety timer2 enable bit is reset to 1
+6.7.4.3 PMU die temperature protection
+AXP2101 has built-in temperature protection function through ADC to monitor internal temperature.
+Under charging mode, the temperature point of thermal regulation can be set through reg65H[1:0]. When die
+temperature rises up to the setting point, the charging current will be decreased to decrease heat. When thermal
+regulation works, actual charge current is lower than the setting value and thermal regulation status(reg00H[1]) is
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 22
+set to 1. If die temperature rises up to TSHUT (145 ℃ ), IRQ is sent, PMU is poweroff. When die temperature falls
+below hysteretic threshold (120℃), PMU is not poweron automatically.
+6.7.4.4 Battery temperature protection
+AXP2101 can monitor battery temperature and affect the charger(reg50H[4]=0), when TS pin is used to detect
+battery temperature. The battery temperature sensitive resistor is connected between TS pin and GND. The
+suggestion resistance should be 10Kohm at 25℃ ambient temperature. Through TS pin, PMU outputs constant
+current which can set through reg50H[1:0] to adapt different resistance. When the resistance is 10Kohm, the
+current should be set to 50uA. The enable bit of TS current source is configured through reg50H[3:2]. When
+current passes through the temperature sensitive resistor, PMU gets a detected voltage and calculates its value
+through ADC circuit. Take for example, TH11-3H103F temperature sensitive resistor of Mitsubishi Company. Using
+50uA current source, the relationship among temperature, equivalent resistance, detected voltage and ADC data
+is as following.
+Table 6-5 Relationship among temperature, equivalent resistance, detected voltage and ADC data
+Temperature equivalent resistance detected voltage ADC DATA
+-20℃ 63.00Kohm 3.150V 189Ch
+-15℃ 50.15Kohm 2.508V 1398h
+-10℃ 40.26Kohm 2.013V FBAh
+-5℃ 32.55Kohm 1.628V CB8h
+0℃ 26.49Kohm 1.325V A5Ah
+5℃ 21.68Kohm 1.084V 878h
+10℃ 17.78Kohm 0.889V 6F2h
+15℃ 14.63Kohm 0.732V 5B8h
+20℃ 12.07Kohm 0.604V 4B8h
+25℃ 10.00Kohm 0.500V 3E8h
+30℃ 8.320Kohm 0.416V 340h
+35℃ 6.954Kohm 0.348V 2B8h
+40℃ 5.839Kohm 0.292V 248h
+45℃ 4.924Kohm 0.246V 1ECh
+50℃ 4.171Kohm 0.209V 1A2h
+55℃ 3.549Kohm 0.177V 162h
+60℃ 3.032Kohm 0.152V 130h
+During battery charging process, if TS pin voltage is lower than VHTF-CHG or higher than VLTF-CHG (VHTF-CHG
+and VLTF-CHG can be set through reg55H and reg54H. The default value of VLTF-CHG is set around 0 ℃ and
+VHTF-CHG around 45℃), which indicates battery temperature is too high or too low, then the charger is paused
+and IRQ is sent to notify Host. When battery temperature is back to the normal range, the charger will recovery
+automatically.
+During battery discharging mode, if TS pin voltage is lower than VHTF-WORK or higher than VLTF-WORK
+(VHTF-WORK and VLTF-WORK can be set through reg57H and reg56H. The default value of VLTF-WORK is set
+around -10℃ and VHTF-WORK around 55℃), which indicates battery temperature is too high or too low, then the
+boost is paused and IRQ is sent to notify Host. When battery temperature is back to the normal range, the boost
+will recovery automatically.
+High temperature protection threshold hysteresis for VHTF-CHG and VHTF-WORK can be set through reg53H. Low
+temperature protection threshold hysteresis for VLTF-CHG and VLTF-WORK can be set through reg52H. The range
+of temperature detection can be expanded by adding more resistors.
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 23
+Some battery may have no temperature sensitive resistor. Under this situation, TS pin can be connected to GND
+with a 10Kohm resistor externally or set as external input of ADC through register.
+6.7.5 Charging indication
+CHGLED pin uses open-drain/push-pull output method. It is internally pulled up to LDO. Its output drive
+capability is above 10mA. Detail function is shown as the following table.
+Table 6-6 CHGLED Function Control
+REG69H[2:1] = 00
+(Type A CHGLED)
+Open Drain
+Hi-Z No charging(conditions are not met or battery
+charged)
+25% 1Hz pull low/Hi-Z jump
+Charger internal abnormal alarm(including timer
+out、die temperature over temperature、battery
+temperature out of charging range)
+25% 4Hz pull low/Hi-Z jump Input source or battery over voltage
+Pull low Charging
+REG69H[2:1] = 01
+(Type B CHGLED)
+Open Drain
+Hi-Z No VBUS, and power supply by battery
+25% 1Hz pull low/Hi-Z jump Charging
+25% 4Hz pull low/Hi-Z jump Alarm, including input source or battery over
+voltage, battery temperature out of charging range,
+timer out ,die temperature over temperature
+Pull low No battery or charge finished, and power supply by
+VBUS
+REG69H[2:1]=10
+Cfg chgled The output status is controlled by REG69H[5:4]
+Note: LED is on when CHGLED is low.
+6.8 BATFET
+BATFET connects system and battery. The on-resistance is low to 50mohm (point to point).
+6.9 RBFET
+RBFET connects VMID and VBUS. The on-resistance is low to 100mOhm (point to point). It supports input and
+output current limit function. In charger mode, the input current limit value of RBFET is set through reg16H[2:0].
+6.10 ADC
+AXP2101 has a low speed 14 Bits SAR ADC for measuring BAT voltage, Vbus voltage, Vsys voltage, TS voltage and
+die temperature.
+Table 6-7 ADC Channel and Data
+No. Channel function 0000H 0001H 0002H … 1FFFH
+0 VBAT voltage 0mV 1mV 2mV … 8.191V
+1 VBUS voltage 0mV 1mV 2mV … 8.191V
+2 VSYS voltage 0mV 1mV 2mV … 8.191V
+3 TS voltage 0mV 0.5mV 1mV … 4.0955V
+4 die temperature 0mV 0.1mV 0.2mV … 0.8191V
+Note: ADC data is 14 bits. In order to get the complete data, TWSI must read the high 6 bits firstly and then the low
+8 bits.
+6.11 E-Gauge
+The Fuel Gauge system is able to export information about battery capacity percentage (regA4H) and Battery
+Voltage (reg34H, reg35H). The Fuel Gauge can be enabled or disabled through reg18H[3]. The Battery low warning
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 24
+level can be set through reg1AH, and IRQ will be sent out to alert the platform when the battery capacity
+percentage is lower than the warning level set through reg1AH.
+Once a default battery is selected for a particular design, it is highly recommended to program the battery
+module to achieve better Fuel Gauge accuracy. Once the battery module data are available, user can write these
+information to battery parameter (REGA1H) after brom is enabled on each boot. Additionally, the Fuel Gauge
+system is capable to learn the battery characteristic automatically.
+6.12 IRQ /BACKUP
+6.12.1 IRQ
+AXP2101 has an IRQ pin which is used to indicate whether there interrupt events occur.
+PMU Interrupt Controller monitors the trigger events such as over voltage, over current, PWRON pin signal, over
+temperature and so on. When the events occur and their IRQ enabled bits are set to 1 (Refer to registers
+reg40H/41H/42H), corresponding IRQ status will be set to 1 (Refer to registers reg48H/49H/4AH), and IRQ pin will
+be pulled down. When Host detects triggered IRQ signal, Host will scan through the IRQ Status registers and
+respond accordingly. Meanwhile, Host will reset the IRQ status by writing “1” to status bit.
+6.12.2 BACKUP
+AXP2101 has a backup pin which is used to connect backup battery. It is the source of RTCLDO1
+when pmu has only backup battery.
+When PMU is power on, the backup battery also can be charged by configuring reg18H[2] . The charger is working
+under linear mode with 100uA charge current and the termination voltage can be configured by reg6AH in range
+from 2.6V to 3.3V (default 2.9V).
+The backup pin can also be configured for the RTCLDO2 by customization.
+6.13 Register
+6.13.1 Register List
+Address Description R/W
+0X00 PMU status1 R
+0X01 PMU status2 R
+0X04-0X07 DATA BUFFER RW
+0X10 PMU common configure RW
+0X12 BATFET control RW
+0X13 Die temperature control RW
+0X14 Minimum system voltage control RW
+0X15 Input voltage limit control RW
+0X16 Input current limit control RW
+0X17 Reset the fuel gauge RW
+0X18 Charger, fuel gauge , watchdog on/off control RW
+0X19 Watchdog control RW
+0X1A Low Battery warning threshold setting RW
+0X1B GPIO1 output configure RW
+0X20 PWRON status R
+0X21 PWROFF status R
+0X22 PWROFF_EN RW
+0X23 PWROFF of DCDC OVP/UVP control RW
+0X24 Vsys voltage for PWROFF threshold setting RW
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 25
+Address Description R/W
+0X25 PWROK setting and PWROFF sequence control RW
+0X26 Sleep and wakeup control RW
+0X27 IRQLEVEL/OFFLEVEL/ONLEVEL setting RW
+0X28 Fast pwron setting 0 RW
+0X29 Fast pwron setting 1 RW
+0X2A Fast pwron setting 2 RW
+0X2B Fast pwron setting 3 RW
+0X30 ADC Channel enable control RW
+0X34-3D ADC data RW
+0X40-0X42 IRQ Enable RW
+0X48-0X4A IRQ Status RW
+0X50 TS pin control RW
+0X52 TS_HYSL2H setting RW
+0X53 TS_HYSH2L setting RW
+0X54 VLTF_CHG setting RW
+0X55 VHTF_CHG setting RW
+0X56 VLTF_WORK setting RW
+0X57 VHTF_WORK setting RW
+0X58 JIETA standard enable control RW
+0x59-0X5B JIETA standard setting RW
+0X61 Iprechg charger setting RW
+0X62 ICC charger setting RW
+0X63 Iterm charger setting and control RW
+0X64 CV charger voltage setting RW
+0X65 Thermal regulation threshold setting RW
+0X67 Charger timeout setting and control RW
+0X68 Battery detection control RW
+0X69 CHGLED setting and control RW
+0X6A Button battery charge termination voltage setting RW
+0X80 DCDC ON/OFF and DVM control RW
+0X81 DCDC force PWM control RW
+0X82-0X86 DCDC voltage setting RW
+0X90-0X91 LDO ON/OFF control RW
+0X92-0X9A LDO voltage setting RW
+0XA1 Battery parameter RW
+0XA2 Fuel gauge control RW
+0XA4 Battery percentage data R
+6.13.2 Register Description
+6.13.2.1 REG 00: PMU status1
+Bit Description R/W Reset Default
+7:6 RO / 0
+5 VBUS good indication
+0: not good 1: good RO POR 0
+4 BATFET state
+0: close 1: open RO POR 0
+3 Battery present state
+0: absent 1: present RO POR 0
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 26
+2 Battery in Active Mode
+0: in Normal 1: in Active Mode RO POR 0
+1 Thermal regulation status
+0: normal 1: in thermal regulation RO POR 0
+0 Current Limit state
+0: not in current limit state 1: in current limit state RO POR 0
+6.13.2.2 REG 01: PMU status2
+Bit Description R/W Reset Default
+7 RO / 0
+6:5
+Battery Current Direction
+00: Standby 01: charge
+10: discharge 11: reserved
+RO POR 0
+4 System status indication
+0: System is power off. 1: System is power on. RO POR 0
+3 VINDPM status
+0: not in VINDPM 1: VINDPM RO POR 0
+2:0
+charging status
+000: tri_charge 001: pre_charge
+010: constant charge(CC) 011: constant voltage(CV)
+100: charge done 101: not charging
+11X: reserved
+RO POR 0
+6.13.2.3 REG 04: DATA_BUFFER 0
+Bit Description R/W Reset Default
+7:0 data buffer RW POR 00h
+6.13.2.4 REG 05: DATA_BUFFER 1
+Bit Description R/W Reset Default
+7:0 data buffer RW POR 00h
+6.13.2.5 REG 06: DATA_BUFFER 2
+Bit Description R/W Reset Default
+7:0 data buffer RW POR 00h
+6.13.2.6 REG 07: DATA_BUFFER 3
+Bit Description R/W Reset Default
+7:0 data buffer RW POR 00h
+6.13.2.7 REG 10: PMU common configuration
+Bit Description R/W Reset Default
+7:6 RW / 0b
+5 Internal off-discharge enable for DCDC & LDO & SWITCH
+0: disable 1: enable RW POR 1b
+4 RW / 1b
+3 PWROK PIN pull low to Restart the System
+0: disable 1: enable RW POR 0b
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 27
+2 PWRON 16s to shut the PMIC enable
+0: disable 1: enable RW POR 0b
+1
+Restart the SoC System, POWOFF/POWON and reset the related
+registers
+0: normal 1: reset
+RWAC POR 0b
+0 Soft PWROFF
+0: Normal 1: PWROFF RWAC POR 0b
+6.13.2.8 REG 12: BATFET control
+Bit Description R/W Reset Default
+7:4 RO / 0
+3
+BATFET enable when POWEROFF and Battery only
+0: BATFET disable
+1: BATFET enable
+RW POR EFUSE
+2:0 RO / 0
+6.13.2.9 REG 13: Die temperature control
+Bit Description R/W Reset Default
+7:3 RO / 0
+2:1
+DIE Over Temperature Protection Level1 Configuration
+00: 115deg 01: 125deg
+10: 135deg 11: reserved
+RW POR 01b
+0 DIE Temperature Detect Enable
+0: disable 1: enable RW POR 1b
+6.13.2.10 REG 14：Minimum system voltage control
+Bit Description R/W Reset Default
+7:3 RO / 0
+2:0
+Switch Charger minimum system voltage limit
+3.2+N*0.1 V
+000: 3.2V 001: 3.3V 010: 3.4V
+011: 3.5V 100: 3.6V 101: 3.7V
+110: 3.8V 111: 3.9V
+RW POR 101b
+6.13.2.11 REG 15: Input voltage limit control
+Bit Description R/W Reset Default
+7:4 RO /
+3:0
+VINDPM configuration:
+3.88+N*0.08 V
+0000: 3.88V 0001: 3.96V 0010: 4.04V
+0011: 4.12V 0100: 4.20V 0101: 4.28V
+0110: 4.36V 0111: 4.44V
+1000: 4.52V 1001: 4.60V 1010: 4.68V
+1011: 4.76V 1100: 4.84V 1101: 4.92V
+1110: 5.00V 1111: 5.08V
+RW POR 0110b
+6.13.2.12 REG 16: Input current limit control
+Bit Description R/W Reset Default
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 28
+7:3 RO /
+2:0
+Input current limit
+000: 100mA 001: 500mA 010: 900mA
+011: 1000mA 100: 1500mA 101: 2000mA
+110-111: reserved
+RW POR 100b
+6.13.2.13 REG 17: Reset the fuel gauge
+Bit Description R/W Reset Default
+7:4 RO / 0
+3 reset the gauge
+0: normal 1: reset RWAC POR 0b
+2 reset the gauge besides registers
+0: normal 1: reset RW POR 0b
+1:0 RO / 0
+6.13.2.14 REG 18: Charger, fuel gauge, watchdog on/off control
+Bit Description R/W Reset Default
+7:4 RO / 0
+3 Gauge Module enable
+0: disable 1: enable RW POR 1b
+2 Button Battery charge enable
+0: disable 1: enable RW System
+Reset 0b
+1 Cell Battery charge enable
+0: disable 1: enable RW System
+Reset 1b
+0 Watchdog Module enable
+0: disable 1: enable RW System
+Reset 0b
+6.13.2.15 REG 19: Watchdog control
+Bit Description R/W Reset Default
+7:6 RO / 0
+5:4
+Watchdog Reset Configuration
+00: IRQ only
+01: IRQ and System Reset
+10: IRQ, System Reset and Pull down PWROK 1s
+11: IRQ, System Reset, DCDC/LDO PWROFF & PWRON
+RW POR 0b
+3 watchdog clear signal
+0: normal 1: clear RWAC POR 0b
+2:0
+TWSI watchdog timer configuration
+000: 1s 001: 2s 010: 4s
+011: 8s 100: 16s 101: 32s
+110: 64s 111: 128s
+RW POR 110b
+6.13.2.16 REG 1A: Low Battery warning threshold setting
+Bit Description R/W Reset Default
+7:4
+low battery warning level2
+5-20%, 1% per step
+0000: 5% 0001: 6%
+…… 1111: 20%
+RW POR 1010b
+3:0 low battery warning level1 RW POR 0001b
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 29
+0-15%, 1% per step
+0000: 0% 0001: 1%
+…… 1111: 15%
+6.13.2.17 REG 1B: GPIO1 output configure
+Bit Description R/W Reset Default
+7:4
+3:2
+GPIO1 output configure
+00: Hi-z
+01: Low
+10: Reserved
+11: Reserved
+RW POR 00b
+1:0
+6.13.2.18 REG 20: PWRON status
+Bit Description R/W Reset Default
+7:6 RO / 0
+5 POWERON always high when EN Mode as POWERON Source
+0: no 1: yes RO System
+Reset 0b
+4 Battery Insert and Good as POWERON Source
+0: no 1: yes RO System
+Reset 0b
+3 Battery Voltage > 3.3V when Charged as Source
+0: no 1: yes RO System
+Reset 0b
+2 VBUS Insert and Good as POWERON Source
+0: no 1: yes RO System
+Reset 0b
+1 IRQ PIN Pull-down as POWERON Source
+0: no 1: yes RO System
+Reset 0b
+0
+POWERON low for on level when POWERON Mode as POWERON
+Source
+0: no 1: yes
+RO System
+Reset 0b
+6.13.2.19 REG 21: PWROFF status
+Bit Description R/W Reset Default
+7 Die Over Temperature as POWEROFF Source
+0: no 1: yes RO POR 0b
+6 DCDC Over Voltage as POWEROFF Source
+0: no 1: yes RO POR 0b
+5 DCDC Under Voltage as POWEROFF Source
+0: no 1: yes RO POR 0b
+4 VBUS Over Voltage as POWEROFF Source
+0: no 1: yes RO POR 0b
+3 Vsys Under Voltage as POWEROFF Source
+0: no 1: yes RO POR 0b
+2 POWERON always low when EN Mode as POWEROFF Source
+0: no 1: yes RO POR 0b
+1 Software configuration as POWEROFF Source
+0: no 1: yes RO POR 0b
+0
+POWERON Pull down for off level when POWERON Mode as
+POWEROFF Source
+0: no 1: yes
+RO POR 0b
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 30
+6.13.2.20 REG 22: PWROFF_EN
+Bit Description R/W Reset Default
+7:3 RO / 0
+2 DIE Over-Temperature(LEVEL2) as POWEROFF Source enable
+0: disable 1: enable RW POR 1b
+1 PWRON > OFFLEVEL as POWEROFF Source enable
+0: disable 1: enable RW POR EFUSE
+0
+Function Select when btn_pwroff_en=1 and button power-off
+occur
+0: Power-off 1: Restart
+RW POR EFUSE
+6.13.2.21 REG 23: PWROFF of DCDC OVP/UVP control
+Bit Description R/W Reset Default
+7:6 RO / 0
+5 DCDC 120%(130%) high voltage turn off PMIC function
+0: disable 1: enable RW POR 1b
+4 Reserved RW POR 1b
+3 DCDC4 85% low voltage turn off PMIC function
+0: disable 1: enable RW POR 1b
+2 DCDC3 85% low voltage turn off PMIC function
+0: disable 1: enable RW POR 1b
+1 DCDC2 85% low voltage turn off PMIC function
+0: disable 1: enable RW POR 1b
+0 DCDC1 85% low voltage turn off PMIC function
+0: disable 1: enable RW POR 1b
+6.13.2.22 REG 24: Vsys voltage for PWROFF threshold setting
+Bit Description R/W Reset Default
+7:3 RO / 0
+2:0
+Battery Voltage for POWEROFF
+2.6~3.3V,0.1V/step,8steps
+000: 2.6V 001: 2.7V
+…… 111: 3.3V
+RW POR EFUSE
+6.13.2.23 REG 25: PWROK setting and PWROFF sequence control
+Bit Description R/W Reset Default
+7:5 R0 / 0
+4
+Check the PWROK Pin enable after all DCDC/LDO output valid
+128ms
+0: disable 1: enable
+RW POR 1b
+3 POWEROFF Delay 4ms after PWROK disable
+0: disable 1: enable RW POR 1b
+2 POWEROFF Sequence Control
+0: At the same time 1: the reverse of the Startup RW POR 0b
+1:0
+Delay of PWROK after all power output good
+00: 8ms 01: 16ms
+10: 32ms 11: 64ms
+RW POR EFUSE
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 31
+6.13.2.24 REG 26: Sleep and wakeup control
+Bit Description R/W Reset Default
+7:5 R0 / 0
+4 IRQ Pin low to Wakeup
+0: disable 1: enable RW POR 0b
+3 PWROK be low-level enable when Wakeup
+0: disable 1: enable RW POR 1b
+2 DCDC/LDO Voltage Select when Wakeup
+0: The Default 1: The voltage before wakeup RW POR 0b
+1 Wake Up enable
+0: disable 1: enable RWLC System
+Reset 0b
+0 SLEEP enable
+0: disable 1: enable RWLC System
+Reset 0b
+6.13.2.25 REG 27: IRQLEVEL/OFFLEVEL/ONLEVEL setting
+Bit Description R/W Reset Default
+7:6 R0 / 0
+5:4
+IRQLEVEL configuration
+00: 1s 01: 1.5s
+10: 2s 11: 2.5s
+RW POR 01b
+3:2
+OFFLEVEL configuration
+00: 4s 01: 6s
+10: 8s 11: 10s
+RW POR 01b
+1:0
+ONLEVEL configuration
+00: 128ms 01: 512ms
+10: 1s 11: 2s
+RW POR EFUSE
+6.13.2.26 REG 28: Fast pwron setting 0
+Bit Description R/W Reset Default
+7:6 DCDC4 Fast Power On Start Sequence
+00~10: Start Sequence Code 11: disable RW POR 0b
+5:4 DCDC3 Fast Power On Start Sequence
+00~10: Start Sequence Code 11: disable RW POR 0b
+3:2 DCDC2 Fast Power On Start Sequence
+00~10: Start Sequence Code 11: disable RW POR 0b
+1:0 DCDC1 Fast Power On Start Sequence
+00~10: Start Sequence Code 11: disable RW POR 0b
+6.13.2.27 REG 29: Fast pwron setting 1
+Bit Description R/W Reset Default
+7:6 ALDO3 Fast Power On Start Sequence
+00~10: Start Sequence Code 11: disable RW POR 0b
+5:4 ALDO2 Fast Power On Start Sequence
+00~10: Start Sequence Code 11: disable RW POR 0b
+3:2 ALDO1 Fast Power On Start Sequence
+00~10: Start Sequence Code 11: disable RW POR 0b
+1:0 Reserved RW POR 0b
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 32
+6.13.2.28 REG 2A: Fast pwron setting 2
+Bit Description R/W Reset Default
+7:6 CPUSLDO Fast Power On Start Sequence
+00~10: Start Sequence Code 11: disable RW POR 0b
+5:4 BLDO2 Fast Power On Start Sequence
+00~10: Start Sequence Code 11: disable RW POR 0b
+3:2 BLDO1 Fast Power On Start Sequence
+00~10: Start Sequence Code 11: disable RW POR 0b
+1:0 ALDO4 Fast Power On Start Sequence
+00~10: Start Sequence Code 11: disable RW POR 0b
+6.13.2.29 REG 2B: Fast pwron setting 3
+Bit Description R/W Reset Default
+7 Fast Power On Enable
+0: disable 1: enable RW POR 0b
+6 Fast Wake up Enable
+0: disable 1: enable RW POR 0b
+5:4 RO / 0b
+3:2 DLDO2 Fast Power On Start Sequence
+00~10: Start Sequence Code 11: disable RW POR 0b
+1:0 DLDO1 Fast Power On Start Sequence
+00~10: Start Sequence Code 11: disable RW POR 0b
+6.13.2.30 REG 30: ADC Channel enable control 0
+Bit Description R/W Reset Default
+7:6 R0 / 0
+5 general purpose ADC channel enable
+0: disable 1: enable RW POR 0b
+4 die temperature measure ADC channel enable
+0: disable 1: enable RW POR 0b
+3 system voltage voltage measure ADC channel enable
+0: disable 1: enable RW POR 0b
+2 VBUS voltage measure ADC channel enable
+0: disable 1: enable RW POR 0b
+1 TS pin measure ADC channel enable
+0: disable 1: enable RW POR 1b
+0 battery voltage measure ADC channel enable
+0: disable 1: enable RW POR 1b
+6.13.2.31 REG 34: vbat_h
+Bit Description R/W Reset Default
+7:6
+ch_dbg_en_l is ch_dbg_en[1:0]
+ch_dbg_en:
+000: disable 001: vbat use all channels 010: ts
+use all channels 011: vbus use all channels
+100: vsys use all channels 101: tdie use all channels
+110: gpadc use all channels 111: reserved
+RW POR 0b
+5:0 vbat[13:8] RO POR 0b
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 33
+6.13.2.32 REG 35: vbat_l
+Bit Description R/W Reset Default
+7:0 vbat[7:0] RO POR 0b
+6.13.2.33 REG 36: ts_h
+Bit Description R/W Reset Default
+7
+ADC in low frequency sample mode when PWROFF and Battery
+only enable(64s)
+0: disable 1: enable
+RW POR 1b
+6 ch_dbg_en_h is ch_dbg_en[2] RW POR 0b
+5:0 ts[13:8] RO POR 0b
+6.13.2.34 REG 37: ts_l
+Bit Description R/W Reset Default
+7:0 ts[7:0] RO POR 0b
+6.13.2.35 REG 38: vbus_h
+Bit Description R/W Reset Default
+7:6 RO / 0
+5:0 vbus[13:8] RO POR 0b
+6.13.2.36 REG 39: vbus_l
+Bit Description R/W Reset Default
+7:0 vbus[7:0] RO POR 0b
+6.13.2.37 REG 3A: vsys_h
+Bit Description R/W Reset Default
+7:6 RO / 0
+5:0 vsys[13:8] RO POR 0b
+6.13.2.38 REG 3B: vsys_l
+Bit Description R/W Reset Default
+7:0 vsys[7:0] RO POR 0b
+6.13.2.39 REG 3C: tdie_h
+Bit Description R/W Reset Default
+7:6 RO / 0
+5:0 tdie[13:8] RO POR 0b
+6.13.2.40 REG 3D: tdie_l
+Bit Description R/W Reset Default
+7:0 tdie[7:0] RO POR 0b
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 34
+6.13.2.41 REG 40: IRQ Enable 0
+Bit Description R/W Reset Default
+7 SOC drop to Warning Level2 IRQ(socwl2_irq) enable
+0: disable 1: enable RW System
+Reset 1b
+6 SOC drop to Warning Level1 IRQ(socwl1_irq) enable
+0: disable 1: enable RW System
+Reset 1b
+5 Gauge Watchdog Timeout IRQ(gwdt_irq) enable
+0: disable 1: enable RW System
+Reset 1b
+4 Gauge New SOC IRQ(lowsoc_irq) enable
+0: disable 1: enable RW System
+Reset 1b
+3 Battery Over Temperature in Charge mode IRQ(bcot_irq) enable
+0: disable 1: enable RW System
+Reset 1b
+2 Battery Under Temperature in Charge mode IRQ(bcut_irq) enable
+0: disable 1: enable RW System
+Reset 1b
+1 Battery Over Temperature in Work mode IRQ(bwot_irq) enable
+0: disable 1: enable RW System
+Reset 1b
+0 Battery Under Temperature in Work mode IRQ(bwut_irq) enable
+0: disable 1: enable RW System
+Reset 1b
+6.13.2.42 REG 41: IRQ Enable 1
+Bit Description R/W Reset Default
+7 VBUS Insert IRQ(vinsert_irq) enable
+0: disable 1: enable RW System
+Reset 1b
+6 VBUS Remove IRQ(vremove_irq) enable
+0: disable 1: enable RW System
+Reset 1b
+5 Battery Insert IRQ(binsert_irq) enable
+0: disable 1: enable RW System
+Reset 1b
+4 Battery Remove IRQ(bremove_irq) enable
+0: disable 1: enable RW System
+Reset 1b
+3 POWERON Short PRESS IRQ(ponsp_irq_en) enable
+0: disable 1: enable RW System
+Reset 1b
+2 POWERON Long PRESS IRQ(ponlp_irq) enable
+0: disable 1: enable RW System
+Reset 1b
+1 POWERON Negative Edge IRQ(ponne_irq_en) enable
+0: disable 1: enable RW System
+Reset 0b
+0 POWERON Positive Edge IRQ(ponpe_irq_en) enable
+0: disable 1: enable RW System
+Reset 0b
+6.13.2.43 REG 42: IRQ Enable 2
+Bit Description R/W Reset Default
+7 Watchdog Expire IRQ(wdexp_irq) enable
+0: disable 1: enable RW System
+Reset 0b
+6 LDO Over Current IRQ(ldooc_irq) enable
+0: disable 1: enable RW System
+Reset 1b
+5 Reserved RO / 0
+4 Battery charge done IRQ(chgdn_irq) enable
+0: disable 1: enable RW System
+Reset 1b
+3 Charger start IRQ(chgst_irq) enable
+0: disable 1: enable RW System
+Reset 1b
+2 DIE Over Temperature level1 IRQ(dotl1_irq) enable RW System 1b
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 35
+0: disable 1: enable Reset
+1 Charger Safety Timer1/2 expire IRQ(chgte_irq) enable
+0: disable 1: enable RW System
+Reset 1b
+0 Battery Over Voltage Protection IRQ(bovp_irq) enable
+0: disable 1: enable RW System
+Reset 1b
+6.13.2.44 REG 48: IRQ Status 0
+Bit Description R/W Reset Default
+7
+SOC drop to Warning Level IRQ
+0: no irq 1: irq
+when SOC >= Warning Level or SOC < shutdown Level to clear it
+RW1C POR 0b
+6
+SOC drop to Shutdown Level IRQ
+0: no irq 1: irq
+when SOC >= Shutdown Level to clear it
+RW1C POR 0b
+5 Gauge Watchdog Timeout IRQ
+0: no irq 1: irq RW1C POR 0b
+4 Gauge New SOC IRQ
+0: no irq 1: irq RW1C POR 0b
+3
+Battery Over Temperature in Charge mode IRQ
+0: no irq 1: irq
+Battery Temperature to normal to clear it
+RW1C POR 0b
+2
+Battery Under Temperature in Charge mode IRQ
+0: no irq 1: irq
+Battery Temperature to normal to clear it
+RW1C POR 0b
+1
+Battery Over Temperature in Work mode IRQ
+0: no irq 1: irq
+Battery Temperature to normal to clear it
+RW1C System
+Reset 0b
+0
+Battery Under Temperature in Work mode IRQ
+0: no irq 1: irq
+Battery Temperature to normal to clear it
+RW1C System
+Reset 0b
+6.13.2.45 REG 49: IRQ Status 1
+Bit Description R/W Reset Default
+7
+VBUS Insert IRQ
+0: no irq 1: irq
+VBUS Remove to clear it
+RW1C POR 0b
+6
+VBUS Remove IRQ
+0: no irq 1: irq
+VBUS Insert to clear it
+RW1C POR 0b
+5
+Battery Insert IRQ
+0: no irq 1: irq
+Battery Remove to clear it
+RW1C POR 0b
+4
+Battery Remove IRQ
+0: no irq 1: irq
+Battery Insert to clear it
+RW1C POR 0b
+3 POWERON Short PRESS IRQ
+0: no irq 1: irq RW1C System
+Reset 0b
+2 POWERON Long PRESS IRQ
+0: no irq 1: irq RW1C System
+Reset 0b
+1 POWERON Negative Edge IRQ
+0: no irq 1: irq RW1C System
+Reset 0b
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 36
+0 POWERON Positive Edge IRQ
+0: no irq 1: irq RW1C System
+Reset 0b
+6.13.2.46 REG 4A: IRQ Status 2
+Bit Description R/W Reset Default
+7 Watchdog Expire IRQ
+0: no irq 1: irq RW1C POR 0b
+6
+LDO Over Current IRQ
+0: no irq 1: irq
+LDO Current to normal to clear it
+RW1C System
+Reset 0b
+5 Reserved RO / 0
+4
+Battery charge done IRQ
+0: no irq 1: irq
+Battery charge start to clear it
+RW1C POR 0b
+3
+Battery charge start IRQ
+0: no irq 1: irq
+Battery charge done to clear it
+RW1C POR 0b
+2
+DIE Over Temperature level1 IRQ
+0: no irq 1: irq
+DIE Temperature to normal to clear it
+RW1C POR 0b
+1 Charger Safety Timer1/2 expire IRQ
+0: no irq 1: irq RW1C POR 0b
+0
+Battery Over Voltage Protection IRQ
+0: no irq 1: irq
+Battery Voltage to normal to clear it
+RW1C POR 0b
+6.13.2.47 REG 50: TS pin control
+Bit Description R/W Reset Default
+7:5 RO / 0
+4
+TS PIN function select:
+0: TS pin is the battery temperature sensor input and will affect
+the charger
+1: TS pin is the external fixed input and doesn't affect the charger
+RW POR EFUSE
+3:2
+TS current source on/off enable
+00: off
+01: on when TS channel of ADC is enabled
+10: on only when TS channel is working and off when others
+channel is working
+11: always on
+RW POR EFUSE
+1:0
+current source to TS pin configuration
+00: 20uA 01: 40uA
+10: 50uA 11: 60uA
+RW POR 10b
+6.13.2.48 REG 52: TS_HYSL2H setting
+Bit Description R/W Reset Default
+7:0 hysteresis for TS from low go to normal
+Thys = N*16mV (default 32mV) RW POR 2h
+6.13.2.49 REG 53: TS_HYSH2L setting
+Bit Description R/W Reset Default
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 37
+7:0 hysteresis for TS from high go to normal
+Thys = N*4mV (default 4mV) RW POR 1h
+6.13.2.50 REG 54: VLTF_CHG setting
+Bit Description R/W Reset Default
+7:0
+VLTF in voltage of charge configuration
+VLTF = N*32 mV (default is about 0deg)
+This is also T1 of JEITA
+RW POR 29h
+6.13.2.51 REG 55: VHTF_CHG setting
+Bit Description R/W Reset Default
+7:0
+VHTF in voltage of charge configuration
+VHTF = N*2 mV (default is about 55deg)
+This is also T4 of JEITA
+RW POR 58h
+6.13.2.52 REG 56: VLTF_WORK setting
+Bit Description R/W Reset Default
+7:0 VLTF in voltage of work configuration
+VLTF = N*32 mV (default is about -10deg) RW POR 3Eh
+6.13.2.53 REG 57: VHTF_WORK setting
+Bit Description R/W Reset Default
+7:0 VHTF in voltage of work configuration
+VHTF = N*2 mV (default is about 60deg) RW POR 4Ch
+6.13.2.54 REG 58: JEITA standard enable control
+Bit Description R/W Reset Default
+7:1 RO / 0
+0 JEITA standard enable
+0: disable 1: enable RW POR EFUSE
+6.13.2.55 REG 59: JEITA CV configuration
+Bit Description R/W Reset Default
+7 RO / 0
+6 Current fall of Warm in JEITA Standard
+0: 100% 1: 50% RW POR 0b
+5 RO / 0
+4 Current fall of Cool in JEITA Standard
+0: 100% 1: 50% RW POR 1b
+3:2
+Voltage fall of Warm in JEITA Standard
+00: 0mV
+01: one gear lower than the setting value
+10: two gear lower than the setting value
+11: reserved
+RW POR 01b
+1:0
+Voltage fall of Cool in JEITA Standard
+00: 0mV
+01: one gear lower than the setting value
+RW POR 00b
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 38
+10: two gear lower than the setting value
+11: reserved
+6.13.2.56 REG 5A: JEITA Cool configuration
+Bit Description R/W Reset Default
+7:0 Cool Temperature(T2) in voltage of charge configuration
+VHTF = N*16 mV (default is about 10deg) RW POR 37h
+6.13.2.57 REG 5B: JEITA Warm configuration
+Bit Description R/W Reset Default
+7:0 Warm Temperature(T3) in voltage of charge configuration
+VHTF = N*8 mV (default is about 45deg) RW POR 1Eh
+6.13.2.58 REG 5C: ts_cfg_data_h
+Bit Description R/W Reset Default
+7:6 RO / 0
+5:0 ts_cfg_data[13:8] RW POR 2h
+6.13.2.59 REG 5D: ts_cfg_data_l
+Bit Description R/W Reset Default
+7:0 ts_cfg_data[7:0], ts_cfg_data is TS Voltage configured by MCU
+when ts_ch_en = 0b RO POR 58h
+6.13.2.60 REG 61: Iprechg charger setting
+Bit Description R/W Reset Default
+7:4 RO / 0
+3:0
+Precharge current limit:
+25*N mA
+0000: 0mA 0001: 25mA 0010: 50mA
+0011: 75mA 0100: 100mA 0101: 125mA
+0110: 150mA 0111: 175mA 1000: 200mA
+1001~1111: reserved
+RW POR 0101b
+6.13.2.61 REG 62: ICC charger setting
+Bit Description R/W Reset Default
+7:5 RO / 0
+4:0
+constant current charge current limit:
+25*N mA if N<=8
+200+100*(N-8) mA if N>8
+00000: 0mA 00100: 100mA 00101: 125mA
+00110: 150mA 00111: 175mA 01000: 200mA
+01001: 300mA 01010: 400mA 01011: 500mA
+01100: 600mA 01101: 700mA 01110: 800mA
+01111: 900mA 10000: 1000mA 10001: 1100mA
+10010: 1200mA 10011: 1300mA 10100: 1400mA
+10101: 1500mA
+10110~11111: reserved
+RW POR
+{EFUSE,0
+b,
+EFUSE}
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 39
+6.13.2.62 REG 63: Iterm charger setting and control
+Bit Description R/W Reset Default
+7:5 RO / 0b
+4 Charging termination of current enable
+0: disable 1: enable RW System
+Reset 1b
+3:0
+Termination current limit:
+25*N mA
+0000: 0mA 0001: 25mA 0010: 50mA
+0011: 75mA 0100: 100mA 0101: 125mA
+0110: 150mA 0111: 175mA 1000: 200mA
+1001~1111: reserved
+RW POR 0101b
+6.13.2.63 REG 64: CV charger voltage setting
+Bit Description R/W Reset Default
+7:3 RO / 0
+2:0
+Charge voltage limit
+000: reserved 001: 4.0V 010: 4.1V
+011: 4.2V 100: 4.35V 101: 4.4V
+11X: reserved
+RW POR 011b
+6.13.2.64 REG 65: Thermal regulation threshold setting
+Bit Description R/W Reset Default
+7:2 RO / 0
+1:0
+Thermal regulation threshold
+00: 60deg 01: 80deg
+10: 100deg 11: 120deg
+RW System
+Reset 10b
+6.13.2.65 REG 67: Charger timeout setting and control
+Bit Description R/W Reset Default
+7
+safety timer1/2 setting during DPM or thermal regulation
+0: safety timer not slowed during input DPM or thermal regulation
+1: safety timer slowed during input DPM or thermal regulation
+RW POR 1b
+6 charge done safe timer enable
+0: disable 1: enable RW POR 1b
+5:4
+charge done safety timer configuration
+00: 5hours 01: 8hours
+10: 12hours 11: 20hours
+RW POR 10b
+3 RO / 0
+2 pre-charge safe timer enable
+0: disable 1: enable RW POR 1b
+1:0
+pre-charge safe timer configuration
+00: 40mins 01: 50mins
+10: 60mins 11: 70mins
+RW POR 10b
+6.13.2.66 REG 68: Battery detection control
+Bit Description R/W Reset Default
+7:1 RO / 0
+0 battery detection enable RW POR 1b
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 40
+0: disable 1: enable
+6.13.2.67 REG 69: CHGLED setting and control
+Bit Description R/W Reset Default
+7:6 RO / 0
+5:4
+CHGLED pin output when the register of chgled_func (REG69[2:1])
+is set to 10b
+00: Hiz
+01: Low/Hiz 25%/75% duty 1Hz
+10: Low/Hiz 25%/75% duty 4Hz
+11: drive low
+RW System
+Reset 00b
+3 RO / 0
+2:1
+CHGLED pin display function configuration
+00: display with type A function
+01: display with type B function
+10: output controlled by the register of chgled_out_ctrl
+11: reserved
+RW POR EFUSE
+0
+CHGLED pin enable
+0: disable CHGLED pin function
+1: enable CHGLED pin function
+RW POR 1b
+6.13.2.68 REG 6A: Button battery charge termination voltage setting
+Bit Description R/W Reset Default
+7:3 RO / 0
+2:0
+Button Battery charge termination voltage
+2.6~3.3V，100mV/step，8steps
+000: 2.6V 001: 2.7V 010: 2.8V
+011: 2.9V 100: 3.0V 101: 3.1V
+110: 3.2V 111: 3.3V
+RW POR 011b
+6.13.2.69 REG 80: DCDC ON/OFF and DVM control
+Bit Description R/W Reset Default
+7 RO / 0b
+6 force DCDC work in CCM mode
+0: disable 1: enable RW System
+Reset 0b
+5 DVM voltage ramp control
+0: 15.625 us/step 1: 31.250 us/step RW System
+Reset 0b
+4 RO / 0b
+3 DCDC4 enable
+0: disable 1: enable RW System
+Reset EFUSE
+2 DCDC3 enable
+0: disable 1: enable RW System
+Reset EFUSE
+1 DCDC2 enable
+0: disable 1: enable RW System
+Reset EFUSE
+0 DCDC1 enable
+0: disable 1: enable RW System
+Reset EFUSE
+6.13.2.70 REG 81: DCDC force PWM control
+Bit Description R/W Reset Default
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 41
+7 DCDC frequency spread enable
+0: disable 1: enable RW System
+Reset 0b
+6 DCDC frequency spread range control
+0: 50KHz 1: 100kHz RW System
+Reset 0b
+5 DCDC4 PWM/PFM Control
+0: Auto Switch 1: Always PWM RW System
+Reset 0b
+4 DCDC3 PWM/PFM Control
+0: Auto Switch 1: Always PWM RW System
+Reset 0b
+3 DCDC2 PWM/PFM Control
+0: Auto Switch 1: Always PWM RW System
+Reset 0b
+2 DCDC1 PWM/PFM Control
+0: Auto Switch 1: Always PWM RW System
+Reset 0b
+1:0
+DCDC UVP debounce time configuration
+00: 60us 01: 120us
+10: 180us 11: 240us
+RW POR 00b
+6.13.2.71 REG 82: DCDC1 voltage setting
+Bit Description R/W Reset Default
+7:5 RO / 0
+4:0
+DCDC1 output voltage configuration
+1.5~3.4V,100mV/step,20steps
+00000: 1.5V 00001: 1.6V
+…… 10011: 3.4V
+10100~11111: reserved
+RW System
+Reset EFUSE
+6.13.2.72 REG 83: DCDC2 voltage setting
+Bit Description R/W Reset Default
+7 DCDC2 DVM enable control
+0: disable 1: enable RW System
+Reset 0b
+6:0
+DCDC2 output voltage configuration
+0.5~1.2V,10mV/step,71steps
+1.22~1.54V,20mV/step,17steps
+0000000: 0.50V
+0000001: 0.51V
+……
+1000110: 1.20V
+1000111: 1.22V
+1001000: 1.24V
+……
+1010111: 1.54V
+1011000~1111111: reserved
+RW System
+Reset EFUSE
+6.13.2.73 REG 84: DCDC3 voltage setting
+Bit Description R/W Reset Default
+7 DCDC3 DVM enable control
+0: disable 1: enable RW System
+Reset 0b
+6:0
+DCDC3 output voltage configuration
+0.5~1.2V,10mV/step,71steps
+1.22~1.54V,20mV/step,17steps
+0000000: 0.50V
+0000001: 0.51V
+RW System
+Reset EFUSE
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 42
+……
+1000110: 1.20V
+1000111: 1.22V
+1001000: 1.24V
+……
+1010111: 1.54V
+1011000~1111111: reserved
+6.13.2.74 REG 85: DCDC4 voltage setting
+Bit Description R/W Reset Default
+7 RO / 0
+6:0
+DCDC4 output voltage configuration
+0.5~1.2V,10mV/step,71steps
+1.22~1.84V,20mV/step,32steps
+0000000: 0.50V
+0000001: 0.51V
+……
+1000110: 1.20V
+1000111: 1.22V
+1001000: 1.24V
+……
+1100110: 1.84V 1100111~1101000: reserved
+RW System
+Reset EFUSE
+6.13.2.75 REG 90: LDO ON/OFF control 0
+Bit Description R/W Reset Default
+7 dldo1 enable
+0: disable 1: enable RW System
+Reset EFUSE
+6 cpusldo enable
+0: disable 1: enable RW System
+Reset EFUSE
+5 bldo2 enable
+0: disable 1: enable RW System
+Reset EFUSE
+4 bldo1 enable
+0: disable 1: enable RW System
+Reset EFUSE
+3 aldo4 enable
+0: disable 1: enable RW System
+Reset EFUSE
+2 aldo3 enable
+0: disable 1: enable RW System
+Reset EFUSE
+1 aldo2 enable
+0: disable 1: enable RW System
+Reset EFUSE
+0 aldo1 enable
+0: disable 1: enable RW System
+Reset EFUSE
+6.13.2.76 REG 91: LDO ON/OFF control 1
+Bit Description R/W Reset Default
+7:1 RO / 0
+0 dldo2 enable
+0: disable 1: enable RW System
+Reset EFUSE
+6.13.2.77 REG 92: ALDO1 voltage setting
+Bit Description R/W Reset Default
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 43
+7:5 RO / 0
+4:0
+aldo1 output voltage configuration
+0.5~3.5V，100mV/step，31steps
+00000: 0.5V
+00001: 0.6V
+……
+11110: 3.5V 11111: reserved
+RW System
+Reset EFUSE
+6.13.2.78 REG 93: ALDO2 voltage setting
+Bit Description R/W Reset Default
+7:5 RO / 0
+4:0
+aldo2 output voltage configuration
+0.5~3.5V，100mV/step，31steps
+00000: 0.5V
+00001: 0.6V
+……
+11110: 3.5V 11111: reserved
+RW System
+Reset EFUSE
+6.13.2.79 REG 94: ALDO3 voltage setting
+Bit Description R/W Reset Default
+7:5 RO / 0
+4:0
+aldo3 output voltage configuration
+0.5~3.5V，100mV/step，31steps
+00000: 0.5V
+00001: 0.6V
+……
+11110: 3.5V 11111: reserved
+RW System
+Reset EFUSE
+6.13.2.80 REG 95: ALDO4 voltage setting
+Bit Description R/W Reset Default
+7:5 RO / 0
+4:0
+aldo4 output voltage configuration
+0.5~3.5V，100mV/step，31steps
+00000: 0.5V
+00001: 0.6V
+……
+11110: 3.5V 11111: reserved
+RW System
+Reset EFUSE
+6.13.2.81 REG 96: BLDO1 voltage setting
+Bit Description R/W Reset Default
+7:5 RO / 0
+4:0
+bldo1 output voltage configuration
+0.5~3.5V，100mV/step，31steps
+00000: 0.5V
+00001: 0.6V
+……
+11110: 3.5V 11111: reserved
+RW System
+Reset EFUSE
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 44
+6.13.2.82 REG 97: BLDO2 voltage setting
+Bit Description R/W Reset Default
+7:5 RO / 0
+4:0
+bldo2 output voltage configuration
+0.5~3.5V，100mV/step，31steps
+00000: 0.5V
+00001: 0.6V
+……
+11110: 3.5V 11111: reserved
+RW System
+Reset EFUSE
+6.13.2.83 REG 98: CPUSLDO voltage setting
+Bit Description R/W Reset Default
+7:5 RO / 0
+4:0
+cpusldo output voltage configuration
+0.5~1.4V，50mV/step，20steps
+00000: 0.50V
+00001: 0.55V
+……
+10011: 1.40V 10100~11111: reserved
+RW System
+Reset EFUSE
+6.13.2.84 REG 99: DLDO1 voltage setting
+Bit Description R/W Reset Default
+7:5 RO / 0
+4:0
+dldo1 output voltage configuration
+0.5~3.4V，100mV/step，29steps
+00000: 0.5V
+00001: 0.6V
+……
+11100: 3.3V 11101~11111: reserved
+RW System
+Reset EFUSE
+6.13.2.85 REG 9A: DLDO2 voltage setting
+Bit Description R/W Reset Default
+7:5 RO / 0
+4:0
+dldo2 output voltage configuration
+0.5~1.4V，50mV/step，20steps
+00000: 0.50V
+00001: 0.55V
+……
+10011: 1.40V 10100~11111: reserved
+RW System
+Reset EFUSE
+6.13.2.86 REG A1: Battery parameter
+Bit Description R/W Reset Default
+7:0 Battery parameter ROM RO POR xx
+6.13.2.87 REG A2: Fuel gauge control
+Bit Description R/W Reset Default
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 45
+7:6 reserved RO / 0b
+5 reserved RW POR 0b
+4
+ROM or SRAM select
+0: select rom
+1: select sram
+RW POR 0b
+3:1 reserved RO / 0b
+0
+brom writer control
+0: disable
+1: enable
+RW POR 0b
+6.13.2.88 REG A4: Battery percentage data
+Bit Description R/W Reset Default
+7:0 battery percentage RO POR 00h
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 46
+7 Application Information
+7.1 Typical Application
+Figure 7-1 Typical Application
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 47
+8 Package, Carrier, Storage and Baking Information
+8.1 Package
+AXP2101 package is QFN5*5, 40-pin. Figure 8-1 shows AXP2101 package.
+Figure 8-1 Package Information
+Figure 8-2 AXP2101 marking
+Table 8-1 describes AXP2101 marking information.
+Table 8-1 AXP2101 Marking Definitions
+No. Marking Description Fixed/Dynamic
+1 AXP2101 Product name Fixed
+2 LLLLLXX Lot number Dynamic
+3 XXX1 Date code Dynamic
+4
+ X-POWERS logo Fixed
+5 White dot Package pin 1 Fixed
+8.2 Carrier
+Table 8-2 AXP2101 Tray Carrier Information
+Item Color Size
+Aluminum foil bags Silvery white 540mm x 300mm x 0.14mm
+Pearl cotton cushion(Vacuum
+bag) White 12mm x 680mm x 185mm
+2
+1
+3
+4
+5
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 48
+Pearl cotton cushion (The Gap
+between vacuum bag and inside
+box)
+White Left-Right:12mm x 180mm x 85mm
+Front-Back:12mm x 350mm x 70mm
+Inside Box White 396mm x 196mm x 96mm
+Outside Box White 420mm x 410mm x 320mm
+Figure 8-3 AXP2101 Tray Dimension Drawing
+Table 8-3 AXP2101 Packing Quantity Information
+Type Quantity Part Number
+Tray 490pcs/Tray
+10Trays/package AXP2101
+8.3 Storage
+8.3.1 Moisture Sensitivity Level(MSL)
+A package’s MSL indicates its ability to withstand exposure after it is removed from its shipment bag, a low MSL
+device sample can be exposed on the factor floor longer than a high MSL device sample. ALL MSL are defined in
+Table 8-4.
+Table 8-4 MSL Summary
+MSL Out-of-bag floor life Comments
+1 Unlimited ≤30℃/85%RH
+2 1 year ≤30℃/60%RH
+2a 4 weeks ≤30℃/60%RH
+3 168 hours ≤30℃/60%RH
+4 72 hours ≤30℃/60%RH
+5 48 hours ≤30℃/60%RH
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 49
+5a 24 hours ≤30℃/60%RH
+6 Time on Label(TOL) ≤30℃/60%RH
+AXP2101 device samples are classified as MSL3.
+8.3.2 Bagged Storage Conditions
+The shelf life of AXP2101 are defined in Table 8-5.
+Table 8-5 Bagged Storage Conditions
+Packing mode Vacuum packing
+Storage temperature 20℃~26℃
+Storage humidity 40%~60%RH
+Shelf life 12 months
+8.3.3 Out-of-bag Duration
+It is defined by the device MSL rating. The out-of-bag duration of AXP2101 is as follows.
+Table 8-6 Out-of-bag Duration
+Storage temperature 20℃~26℃
+Storage humidity 40%~60%RH
+Moisture Sensitivity Level(MSL) 3
+Floor life 168 hours
+For no mention of storage rules in this document, please refer to the latest IPC/JEDEC J-STD-020C.
+8.4 Baking
+It is not necessary to bake AXP2101 if the conditions specified in Section 8.4.2 and Section 8.4.3 have not been
+exceeded. It is necessary to bake AXP2101 if any condition specified in Section 8.4.2 and Section 8.4.3 have been
+exceeded.
+Table 8-7 Baking Conditions
+Surrounding Condition Note
+Nitrogen 125℃/8 hours Recommended condition. It is recommended to bake
+once, no more than three times.
+CAUTION: If baking is required, the devices must be transferred into trays that can be baked to at least 125°C.
+Devices should not be baked in tape and reel carriers at any temperature
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 50
+9 Reflow Profile
+The reflow profile recommended in this document is a lead-free reflow profile that is suitable for pure lead-free
+technology of lead-free solder paste.
+Figure 9-1 shows the typical reflow profile of AXP2101 device sample.
+Figure 9-1 AXP2101 Typical Reflow Profile
+Reflow profile conditions of AXP2101 device sample is given in Table 9-1.
+Table 9-1 AXP2101 Reflow Profile Conditions
+QTI typical SMT reflow profile conditions (for reference only)
+Step Reflow condition
+Environment
+N2 purge reflow usage (yes/no) Yes, N2 purge used
+If yes, O2 ppm level O2 < 1500 ppm
+A Preheat ramp up temperature range 25℃ -> 150℃
+B Preheat ramp up rate 1.5-2.5 ℃/sec
+C Soak temperature range 150℃ -> 190℃
+D Soak time 80-110 sec
+E Liquidus temperature 217℃
+F Time above liquidus 60-90 sec
+G Peak temperature 240-250℃
+H Cool down temperature rate ≤4℃/sec
+AXP2101
+Copyright©Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved. 51
+Copyright©2022 Shenzhen X-Powers Technology Co., Ltd. All Rights Reserved.
+This documentation is the original work and copyrighted property of Shenzhen X-Powers Technology Co.,
+Ltd. (“X-Powers”). No part of this document may be reproduced, modify, publish or transmitted in any
+form or by any means without prior written consent of X-Powers .
+Trademarks and Permissions
+X-Powers and the X-Powers logo (incomplete enumeration) are trademarks of Shenzhen X-Powers
+Technology Co., Ltd. All other trademarks, trade names, product or service names mentioned in this
+document are the property of their respective owners.
+Important Notice and Disclaimer
+The purchased products, services and features are stipulated by the contract made between X-Powers
+Technology Co.,Ltd (“X-Powers ” ) and the customer. All or part of the products, services and features
+described in this document may not be within the purchase scope or the usage scope. Please read the
+terms and conditions of the contract and relevant instructions carefully before using, and follow the
+instructions in this documentation strictly. X-Powers assumes no responsibility for the consequences of
+improper use (including but not limited to overvoltage, overclock, or excessive temperature).
+The information in this document is provided just as a reference or typical applications, and is subject to
+change without notice. Every effort has been made in the preparation of this document to ensure
+accuracy of the contents. X-Powers is not responsible for any damage (including but not limited to
+indirect, incidental or special loss) or any infringement of third party rights arising from the use of this
+document. All statements, information, and recommendations in this document do not constitute a
+warranty or commitment of any kind, express or implied.
+No license is granted by X-Powers herein express or implied or otherwise to any patent or intellectual
+property of X-Powers. Third party licences may be required to implement the solution/product.
+Customers shall be solely responsible to obtain all appropriately required third party licences. X-Powers
+shall not be liable for any licence fee or royalty due in respect of any required third party licence.
+X-Powers shall have no warranty, indemnity or other obligations with respect to third party licences.

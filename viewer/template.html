@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d10">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ESP32-S3 板级测试台</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --tabh: 54px;
+    --bg: #0b0d10;
+    --panel: #12161c;
+    --panel2: #171c23;
+    --line: rgba(255,255,255,.075);
+    --text: #e8ecf1;
+    --dim: #8b96a5;
+    --accent: #4c8dff;
+    --ok: #35d07f;
+    --warn: #f0b429;
+    --bad: #ef5350;
+    --mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; background: var(--bg); overflow: hidden; }
+  body {
+    font: 13px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    color: var(--text);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* ---------- 页面容器 ---------- */
+  #main { position: fixed; left: 0; right: 0; top: 0; bottom: calc(var(--tabh) + env(safe-area-inset-bottom)); }
+  .page { position: absolute; inset: 0; display: none; flex-direction: column; }
+  .page.active { display: flex; }
+
+  /* ---------- 底部标签栏 ---------- */
+  #tabs {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    height: calc(var(--tabh) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    display: flex; background: #0e1218;
+    border-top: 1px solid var(--line);
+  }
+  #tabs a {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; color: var(--dim); text-decoration: none; font-size: 11px; letter-spacing: .3px;
+    position: relative;
+  }
+  #tabs a svg { width: 21px; height: 21px; }
+  #tabs a.on { color: var(--accent); }
+  #tabs a.on::before {
+    content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 26px; height: 2px; border-radius: 2px; background: var(--accent);
+  }
+
+  /* ---------- 通用小组件 ---------- */
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 9px; border-radius: 999px; font-size: 12px;
+    background: rgba(20,24,30,.72); border: 1px solid var(--line);
+    letter-spacing: .2px; font-variant-numeric: tabular-nums;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #7d8794; flex: none; }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 8px rgba(53,208,127,.7); }
+  .dot.warn { background: var(--warn); }
+  .dot.bad { background: var(--bad); box-shadow: 0 0 8px rgba(239,83,80,.6); }
+  .mono { font-family: var(--mono); }
+
+  /* ---------- 画面 ---------- */
+  #stage { position: absolute; inset: 0; display: grid; place-items: center; }
+  #frame { width: 100%; height: 100%; object-fit: contain; display: block; background: var(--bg); }
+  .hud {
+    position: absolute; top: 0; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+    padding: 8px 12px 10px; pointer-events: none;
+    background: linear-gradient(180deg, rgba(0,0,0,.62), rgba(0,0,0,0));
+  }
+  .hud > div { display: flex; gap: 6px; flex-wrap: wrap; }
+  #hint {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    text-align: center; padding: 18px 22px; border-radius: 14px; max-width: 82vw; line-height: 1.7;
+    background: rgba(14,17,22,.9); border: 1px solid var(--line);
+  }
+  #hint.hide { display: none; }
+  #hint b { color: var(--accent); font-weight: 600; }
+  #hint small { color: var(--dim); }
+  #bottom {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    padding: 10px 12px; pointer-events: none;
+    background: linear-gradient(0deg, rgba(0,0,0,.62), rgba(0,0,0,0));
+  }
+
+  /* ---------- 串口 ---------- */
+  .pbar {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    border-bottom: 1px solid var(--line); background: var(--panel); flex: none;
+  }
+  .pbar .grow { flex: 1; min-width: 0; }
+  .ghost {
+    background: transparent; border: 1px solid var(--line); color: var(--dim);
+    border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer;
+  }
+  .ghost:active { background: rgba(255,255,255,.06); }
+
+  #term {
+    flex: 1; margin: 0; padding: 10px 12px 14px; overflow-y: auto; overflow-x: hidden;
+    font-family: var(--mono); font-size: 12px; line-height: 1.55;
+    white-space: pre-wrap; word-break: break-word;
+    color: #cfd7e3; background: #080a0d;
+    -webkit-overflow-scrolling: touch;
+  }
+  #term:empty::before {
+    content: "等板子说话…（命令由板子自己执行，不依赖电脑）";
+    color: #5d6875;
+  }
+  #chips {
+    display: flex; gap: 6px; padding: 8px 10px; overflow-x: auto; flex: none;
+    border-top: 1px solid var(--line); background: var(--panel);
+    scrollbar-width: none;
+  }
+  #chips::-webkit-scrollbar { display: none; }
+  #chips button {
+    flex: none; padding: 6px 11px; border-radius: 999px; font-size: 12px; cursor: pointer;
+    background: var(--panel2); color: #c3ccd9; border: 1px solid var(--line);
+    font-family: var(--mono);
+  }
+  #chips button:active { background: #232a33; }
+  .sendrow {
+    display: flex; gap: 8px; padding: 8px 10px 10px; flex: none;
+    background: var(--panel); border-top: 1px solid var(--line);
+  }
+  .sendrow input {
+    flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px;
+    background: #0b0e13; color: var(--text); border: 1px solid var(--line);
+    font-family: var(--mono); font-size: 13px; outline: none;
+  }
+  .sendrow input:focus { border-color: rgba(76,141,255,.55); }
+  .sendrow button {
+    padding: 0 16px; border-radius: 10px; border: 1px solid #2f6fd0;
+    background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .sendrow button:disabled { opacity: .45; }
+
+  /* ---------- 测试结果 ---------- */
+  #page-tests { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .wrap { padding: 14px 12px 26px; max-width: 760px; margin: 0 auto; width: 100%; }
+  .lead { margin: 2px 0 10px; }
+  .lead h1 { font-size: 16px; margin: 0 0 4px; font-weight: 650; letter-spacing: .2px; }
+  .lead p { margin: 0; color: var(--dim); font-size: 12px; }
+
+  .pullrow { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; }
+  .pullrow button {
+    flex: none; padding: 7px 13px; border-radius: 9px; cursor: pointer;
+    background: rgba(76,141,255,.13); color: #9dc2ff;
+    border: 1px solid rgba(76,141,255,.36); font-size: 12.5px;
+  }
+  .pullrow button:active { background: rgba(76,141,255,.24); }
+  .pullrow button:disabled { opacity: .5; }
+  .pullrow span { color: #6b7583; font-size: 11.5px; line-height: 1.4; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+  .stat {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 8px; text-align: center;
+  }
+  .stat b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
+  .stat span { font-size: 11px; color: var(--dim); }
+  .stat.ok b { color: var(--ok); }
+  .stat.bad b { color: var(--bad); }
+  .stat.warn b { color: var(--warn); }
+
+  .callout {
+    display: flex; gap: 10px; padding: 11px 13px; border-radius: 12px; margin-bottom: 14px;
+    background: rgba(239,83,80,.09); border: 1px solid rgba(239,83,80,.35);
+    font-size: 12.5px; line-height: 1.6;
+  }
+  .callout b { color: #ffb3b0; }
+  .callout .idx { flex: none; }
+
+  .grp {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    margin-bottom: 10px; overflow: hidden;
+  }
+  .grp > header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 11px 13px; background: var(--panel2); cursor: pointer;
+    user-select: none;
+  }
+  .grp > header .name { font-family: var(--mono); font-size: 12.5px; color: #cdd6e3; flex: none; }
+  .grp > header .desc { flex: 1; min-width: 0; color: var(--dim); font-size: 11.5px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .grp > header .cnt { font-size: 11.5px; color: var(--dim); font-variant-numeric: tabular-nums; flex: none; }
+  .grp > header .chev { color: var(--dim); font-size: 10px; transition: transform .18s ease; flex: none; }
+  .grp.open > header .chev { transform: rotate(90deg); }
+  .bar { height: 3px; display: flex; background: rgba(255,255,255,.05); }
+  .bar i { display: block; height: 100%; }
+  .bar .p { background: var(--ok); }
+  .bar .f { background: var(--bad); }
+  .bar .s { background: #59616d; }
+
+  .items { display: none; }
+  .grp.open .items { display: block; }
+  .item { padding: 9px 13px; border-top: 1px solid rgba(255,255,255,.045); }
+  .item .top { display: flex; align-items: baseline; gap: 8px; }
+  .item .id { font-family: var(--mono); font-size: 12px; color: #dbe3ee; flex: 1; min-width: 0;
+    word-break: break-all; }
+  .item .desc { color: var(--dim); font-size: 11.5px; margin: 1px 0 0; }
+  .item .note { color: #9aa5b4; font-size: 11.5px; margin-top: 4px; line-height: 1.55; }
+  .item .note::before { content: "↳ "; color: #5d6875; }
+  .badge {
+    flex: none; font-size: 10.5px; font-weight: 700; letter-spacing: .6px;
+    padding: 2px 7px; border-radius: 5px; font-family: var(--mono);
+  }
+  .badge.PASS { color: #6ee7a8; background: rgba(53,208,127,.14); border: 1px solid rgba(53,208,127,.3); }
+  .badge.FAIL { color: #ff9d9a; background: rgba(239,83,80,.16); border: 1px solid rgba(239,83,80,.34); }
+  .badge.SKIP { color: #b9c3d0; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); }
+
+  .foot { color: var(--dim); font-size: 11.5px; line-height: 1.7; margin: 16px 2px 0; }
+  .foot code {
+    font-family: var(--mono); background: rgba(255,255,255,.06); padding: 1px 5px;
+    border-radius: 4px; color: #c8d2e0;
+  }
+  .foot a { color: var(--accent); text-decoration: none; }
+
+  /* ---------- 电池 ---------- */
+  #page-batt { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .bwrap { padding: 12px 12px 26px; max-width: 760px; margin: 0 auto; width: 100%; }
+  .bhead { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .bstate { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; }
+
+  .bhero {
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 10px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 14px 16px 13px; margin-bottom: 8px;
+  }
+  .bvolt b {
+    font-size: 34px; font-weight: 650; letter-spacing: -.6px;
+    font-variant-numeric: tabular-nums; line-height: 1.05;
+  }
+  .bvolt span { color: var(--dim); font-size: 11.5px; margin-left: 5px; }
+  .bpct { text-align: right; flex: none; }
+  .bpct b { font-size: 19px; font-variant-numeric: tabular-nums; }
+  .bpct span { color: var(--dim); font-size: 11px; }
+
+  .bsub { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .bcell {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 11px;
+    padding: 9px 10px; min-width: 0;
+  }
+  .bcell span { display: block; color: var(--dim); font-size: 11px; margin-bottom: 3px; }
+  .bcell b { font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .bchart {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 10px 12px 8px; margin-bottom: 12px;
+  }
+  .bwarn {
+    display: none; margin: 0 0 12px; padding: 10px 12px; border-radius: 11px;
+    background: rgba(240,180,41,.09); border: 1px solid rgba(240,180,41,.34);
+    color: #f0c674; font-size: 12px; line-height: 1.65;
+  }
+  .bwarn.show { display: block; }
+  .bwarn b { color: #ffd98a; }
+  .bchart-head {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    font-size: 11.5px; color: var(--dim); margin-bottom: 6px;
+  }
+  .lg { display: inline-flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+  .lg button {
+    display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
+    background: transparent; border: 0; padding: 2px 5px; border-radius: 6px;
+    color: #6b7583; font-family: inherit; font-size: 11.5px; line-height: 1;
+  }
+  .lg button.on { color: #cdd6e3; }
+  .lg button i { width: 10px; height: 2px; border-radius: 2px; display: inline-block; }
+  .lg button:not(.on) i { opacity: .3; }
+  .lg button i.c1 { background: #4c8dff; }
+  .lg button i.c2 { background: #35d07f; }
+  .lg button i.c3 { background: #f0b429; }
+  #bSvg { width: 100%; height: 168px; display: block; touch-action: pan-y; }
+  .bchart-foot {
+    display: flex; justify-content: space-between; color: #6b7583;
+    font-size: 11px; margin-top: 4px; font-variant-numeric: tabular-nums;
+  }
+
+  .bbtns { display: flex; gap: 8px; margin-bottom: 12px; }
+  .bbtns button { flex: 1; padding: 8px 10px; }
+  .bfoot { color: var(--dim); font-size: 11.5px; line-height: 1.75; margin: 0 2px; }
+  .bfoot code {
+    font-family: var(--mono); background: rgba(255,255,255,.06); padding: 1px 5px;
+    border-radius: 4px; color: #c8d2e0;
+  }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(var(--tabh) + env(safe-area-inset-bottom) + 18px);
+    transform: translateX(-50%) translateY(12px); z-index: 50;
+    background: #1b2129; color: #e8ecf1; border: 1px solid var(--line);
+    font-size: 12.5px; padding: 9px 15px; border-radius: 999px;
+    opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s;
+    max-width: 86vw; text-align: center;
+  }
+  .toast.show { opacity: .97; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<main id="main">
+
+  <!-- ============ 1. 画面 ============ -->
+  <section class="page" id="page-cam">
+    <div id="stage"><img id="frame" alt=""></div>
+    <div class="hud">
+      <div>
+        <span class="pill"><span class="dot" id="dot"></span><span id="state">连接中</span></span>
+        <span class="pill" id="lock" title="数据在板子上加密，浏览器里解密">🔒 加密</span>
+        <span class="pill" id="res">—</span>
+      </div>
+      <span class="pill" id="fps">0.0 fps</span>
+    </div>
+    <div id="hint">
+      <div id="hintTitle">正在连接画面…</div>
+      <div><small id="hintSub">板子只在有画面时推送，首次连接最多要等十几秒</small></div>
+    </div>
+    <div id="bottom">
+      <span class="pill" id="size">—</span>
+      <span class="pill" id="rx">0 KB</span>
+    </div>
+  </section>
+
+  <!-- ============ 2. 远程串口 ============ -->
+  <section class="page" id="page-serial">
+    <div class="pbar">
+      <span class="pill"><span class="dot" id="serDot"></span><span id="serState">等板子上报…</span></span>
+      <span class="grow"></span>
+      <button class="ghost" id="serClear" type="button">清屏</button>
+    </div>
+    <pre id="term"></pre>
+    <div id="chips"></div>
+    <div class="sendrow">
+      <input id="cmd" type="text" placeholder="输入命令，如 cam / wifi ip / run core"
+             autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <button id="send" type="button">发送</button>
+    </div>
+  </section>
+
+  <!-- ============ 3. 测试结果 ============ -->
+  <section class="page" id="page-tests">
+    <div class="wrap">
+      <div class="lead">
+        <h1>板级自检结果</h1>
+        <p id="runInfo">—</p>
+      </div>
+      <div class="pullrow">
+        <button id="pullBtn" type="button">从板子拉取最新结果</button>
+        <span id="pullHint">板子每次启动自动推一份，这里可手动再拉</span>
+      </div>
+      <div class="stats" id="stats"></div>
+      <div id="failBox"></div>
+      <div id="groups"></div>
+      <p class="foot" id="footNote"></p>
+    </div>
+  </section>
+
+  <!-- ============ 4. 电池 ============ -->
+  <section class="page" id="page-batt">
+    <div class="bwrap">
+      <div class="bhead">
+        <span class="bstate"><span class="dot" id="bDot"></span><span id="bState">等待板子上报…</span></span>
+        <span class="grow" style="flex:1"></span>
+        <span class="pill" id="bChg">—</span>
+      </div>
+
+      <div class="bhero">
+        <div class="bvolt"><b id="bVbat">—</b><span>mV 电池</span></div>
+        <div class="bpct"><b id="bPct">—</b><span>% 电量</span></div>
+      </div>
+
+      <div class="bsub">
+        <div class="bcell"><span>输入 VBUS</span><b id="bVbus">—</b></div>
+        <div class="bcell"><span>系统 VSYS</span><b id="bVsys">—</b></div>
+        <div class="bcell"><span>电压变化率</span><b id="bRate">—</b></div>
+      </div>
+
+      <div class="bwarn" id="bWarn"></div>
+
+      <div class="bchart">
+        <div class="bchart-head">
+          <span>电压曲线（每 3 秒一点）</span>
+          <span class="lg">
+            <button type="button" data-k="v" class="on"><i class="c1"></i>VBAT</button>
+            <button type="button" data-k="s"><i class="c2"></i>VSYS</button>
+            <button type="button" data-k="u"><i class="c3"></i>VBUS</button>
+          </span>
+        </div>
+        <svg id="bSvg"></svg>
+        <div class="bchart-foot"><span id="bSpan">—</span><span id="bCount">0 点</span></div>
+      </div>
+
+      <div class="bbtns">
+        <button class="ghost" id="bPause" type="button">暂停记录</button>
+        <button class="ghost" id="bCsv" type="button">导出 CSV</button>
+        <button class="ghost" id="bClear" type="button">清空</button>
+      </div>
+
+      <p class="bfoot" id="bFoot"></p>
+    </div>
+  </section>
+
+</main>
+
+<nav id="tabs">
+  <a href="#/cam" data-page="cam">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2.5" y="6" width="13" height="12" rx="2.5"></rect>
+      <path d="M15.5 10.5 21 7.8v8.4l-5.5-2.7"></path>
+    </svg>
+    <span>画面</span>
+  </a>
+  <a href="#/serial" data-page="serial">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2.5" y="4" width="19" height="16" rx="2.5"></rect>
+      <path d="M7 9.5 10 12l-3 2.5M12.5 15h4"></path>
+    </svg>
+    <span>串口</span>
+  </a>
+  <a href="#/batt" data-page="batt">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2" y="7" width="16.5" height="10" rx="2.6"></rect>
+      <path d="M21.5 10.4v3.2"></path>
+      <path d="M5.6 10.3v3.4M9 10.3v3.4M12.4 10.3v3.4"></path>
+    </svg>
+    <span>电池</span>
+  </a>
+  <a href="#/tests" data-page="tests">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 3.5h6M10 3.5v5.2L5.6 17a2 2 0 0 0 1.7 3h9.4a2 2 0 0 0 1.7-3L14 8.7V3.5"></path>
+      <path d="M7.6 14h8.8"></path>
+    </svg>
+    <span>测试</span>
+  </a>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<!--@secrets-->
+<!--@mqtt-lite-->
+<!--@crypto-->
+<!--@app-->
+</body>
+</html>

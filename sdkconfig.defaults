@@ -1,0 +1,84 @@
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+
+# 主控制台走片内 USB-Serial-JTAG（本板只引出一根 USB 线，COM3 就是它）。
+# 关键原因：只有"主控制台"才把 VFS stdin 接到 USB；作次要通道时只能输出，
+# 主机侧写入会因 RX FIFO 无人排空而超时（实测 pyserial write 直接 Write timeout），
+# 测试框架的命令行就没有输入来源。
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+
+# 板 B（MAC 44:B1:76:A4:12:88）是 ESP32-S3R8，**片上 8MB octal PSRAM**。
+# 摄像头一帧 VGA JPEG 约 20~60KB、DVP 收帧缓冲要 2 帧，内部 RAM 放不下，
+# 必须开 PSRAM。注意是 OCT（八角）不是 QUAD：S3 的 8MB 内嵌只走 octal，
+# 配错模式会在启动时报 "PSRAM ID read error"。
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+CONFIG_SPIRAM_BOOT_INIT=y
+# 板 A 大概率没有 PSRAM（未确认）。不设这一项，把同一份固件刷到板 A 会直接 panic。
+# 设为 y 后：找不到 PSRAM 就打印警告继续跑，摄像头功能自行降级为不可用。
+CONFIG_SPIRAM_IGNORE_NOTFOUND=y
+
+# 默认 SINGLE_APP 只有 1MB，加了摄像头+HTTP 服务器后装不下，换 1.5MB 档。
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
+# ════════════════════════════════════════════════════════════════════════
+# esp32-camera 组件（components/esp32-camera，2.1.7 裁剪版）
+#
+# 只保留 OV2640。其余 15 款传感器的 .c 仍在磁盘上但不参与编译，把 Kconfig
+# 开关一起关掉才能让 esp_camera.c 的 g_sensors[] 只注册 OV2640 —— 否则
+# 那些 detect 函数的符号会缺，链接直接报 undefined reference。
+# ════════════════════════════════════════════════════════════════════════
+CONFIG_OV2640_SUPPORT=y
+CONFIG_OV7670_SUPPORT=n
+CONFIG_OV7725_SUPPORT=n
+CONFIG_OV3660_SUPPORT=n
+CONFIG_OV5640_SUPPORT=n
+CONFIG_NT99141_SUPPORT=n
+CONFIG_GC2145_SUPPORT=n
+CONFIG_GC032A_SUPPORT=n
+CONFIG_GC0308_SUPPORT=n
+CONFIG_BF3005_SUPPORT=n
+CONFIG_BF20A6_SUPPORT=n
+CONFIG_SC101IOT_SUPPORT=n
+CONFIG_SC030IOT_SUPPORT=n
+CONFIG_SC031GS_SUPPORT=n
+CONFIG_MEGA_CCM_SUPPORT=n
+CONFIG_HM1055_SUPPORT=n
+CONFIG_HM0360_SUPPORT=n
+
+# JPEG 模式的帧缓冲上限（= 驱动里 fb_size，超了整帧丢弃）。
+#   上游 AUTO 档按 w*h/5 算；本工程早期 QVGA 用 40 KB 够，提到 VGA(640x480)
+#   后细节场景一帧能到 50~90 KB，所以放到 150 KB。
+#   必须与 main/cam_jpeg.c 的 CAM_FB_BYTES 保持一致。
+CONFIG_CAMERA_JPEG_MODE_FRAME_SIZE_CUSTOM=y
+CONFIG_CAMERA_JPEG_MODE_FRAME_SIZE=153600
+
+# SCCB 走新版 i2c_master（IDF 6 只有新版）。端口填 I2C0 只是为了让
+# "默认值"和实际用法一致——本工程走 SCCB_Use_Port()，复用板上已建好的
+# 总线，不会新建，也不会去动 GPIO1/2。
+CONFIG_SCCB_HARDWARE_I2C_DRIVER_NEW=y
+CONFIG_SCCB_HARDWARE_I2C_PORT0=y
+CONFIG_SCCB_CLK_FREQ=100000
+
+# 采集任务：4 KB 栈（任务里要做 JPEG 首尾校验和 memcpy），钉 core0。
+# core1 留给 WiFi，避免收帧把射频任务挤掉。
+CONFIG_CAMERA_TASK_STACK_SIZE=4096
+CONFIG_CAMERA_CORE0=y
+
+# PSRAM DMA 开关（当前：开）。
+#
+# 这里踩过一个大坑，改之前想清楚：
+#   关闭时（n），ll_cam_dma_sizes() 给 JPEG 模式**写死** 16 个 1024 B 的
+#   DMA 半缓冲（见 target/esp32s3/ll_cam.c），即总共只有 16 KB，且每收
+#   1024 B 就中断一次、由 cam_hal 从内部 RAM memcpy 到 PSRAM 帧缓冲。
+#   24 fps × 每帧 13 KB ≈ 每秒 300 次中断搬家，一旦 cam_hal 处理不及时，
+#   DMA 就会绕回队列头部覆盖尚未搬走的数据 —— 现象是画面出现**水平错位
+#   撕裂和彩色横纹**（不是花屏，JPEG 的 SOI/EOI 甚至都还是完整的，所以
+#   逐帧校验根本查不出来）。
+#   开启后（y），GDMA 直接写 PSRAM 里那一整块 recv_size 帧缓冲，不再有
+#   频繁的半缓冲中断搬运，撕裂消失。
+#
+# 打开它需要：fb_location = CAMERA_FB_IN_PSRAM，且 PSRAM 工作在 80 MHz
+# OCT 模式（本板满足）。日志里出现 "PSRAM DMA mode enabled" 才算生效。
+CONFIG_CAMERA_PSRAM_DMA=y
+
