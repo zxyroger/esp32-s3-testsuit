@@ -93,7 +93,14 @@
   const elRes = $('res'), elSize = $('size'), elRx = $('rx');
   const hint = $('hint'), hintT = $('hintTitle'), hintS = $('hintSub');
 
-  let objUrl = null, frameCount = 0, byteCount = 0, t0 = performance.now(), gotFirst = false;
+  let objUrl = null, frameCount = 0, byteCount = 0, totalBytes = 0, t0 = performance.now(), gotFirst = false;
+
+  /* 与板子内嵌页面同一套单位规则，保证两边数字读法一致 */
+  function fmtK(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+    return (n / 1048576).toFixed(2) + ' MB';
+  }
 
   function setState(text, kind) {
     elState.textContent = text;
@@ -110,6 +117,7 @@
 
     frameCount++;
     byteCount += buf.length;
+    totalBytes += buf.length;
     if (!gotFirst) {
       gotFirst = true;
       hint.classList.add('hide');
@@ -119,7 +127,7 @@
     const now = performance.now();
     if (now - t0 >= 1000) {
       elFps.textContent = (frameCount * 1000 / (now - t0)).toFixed(1) + ' fps';
-      elRx.textContent = (byteCount / 1024).toFixed(0) + ' KB';
+      elRx.textContent = fmtK(totalBytes);
       frameCount = 0; byteCount = 0; t0 = now;
     }
   }
@@ -310,7 +318,7 @@
       for (const g of GROUPS) for (const it of g.items) it[2] = '';
     }
     const map = new Map();
-    for (const c of obj.cases) map.set(c.id, c.result);
+    for (const c of obj.cases) map.set(c.id, c);
 
     /* 固件里新增、页面清单还没跟上的用例：按 cat 补进对应分组。
      * 不补的话这些项既不出现在页面上、也不计入统计，看起来像"少了几项"。
@@ -333,8 +341,12 @@
 
     for (const g of GROUPS) {
       for (const it of g.items) {
-        const r = map.get(it[0]);
-        if (r) it[2] = r;
+        const c = map.get(it[0]);
+        if (!c) continue;
+        it[2] = c.result;
+        /* 失败原因必须跟着实测结果一起换掉。只更新状态的话，页面上会
+         * 出现"状态是 FAIL、原因还是上一次基线文案"——数字对不上，比没有原因更糟。 */
+        if (c.msg) it[3] = c.msg;
       }
     }
     if (obj.total) {
@@ -501,8 +513,8 @@
         ['audio.pa_ctrl', '功放 NS4150B CTRL 脚（GPIO47）电平翻转', 'PASS', ''],
         ['audio.play_tone', '播放 1 kHz 正弦 200 ms（验时钟与 DMA）', 'PASS', '实测发送 161 ms，DMA 吸收 40 ms'],
         ['audio.dig_loop', '数字回环（REG44=0x68）验 ASDOUT + I2S RX', 'PASS', '左右 RMS 12020、峰值 20000'],
-        ['audio.capture_level', '麦克风采集（42 dB→0 dB 验证经 PGA）', 'SKIP',
-          '左声道 RMS=0，信号过弱；查 MIC 偏置与隔直电容'],
+        ['audio.capture_level', '麦克风采集（42 dB→0 dB 验证经 PGA）', 'FAIL',
+          '左声道信号过弱（RMS=1 < 8）：查偏置与隔直电容。麦克风无效属硬件故障，不按跳过处理'],
         ['audio.dump', '关键配置寄存器汇总', 'PASS', ''],
       ],
     },
@@ -969,7 +981,7 @@
       else if (s === 'handshake') setState('握手…', 'warn');
       else if (s === 'subscribed') {
         mqttOn = true;
-        setState('已连接', 'ok');
+        setState('在线', 'ok');
         /* 自检结果是 RETAIN 消息，正常一订阅就来。若 3 秒还没有（broker 清过
          * 保留消息、或换过 broker），静默补拉一次，保证页面不会停在旧结果上。 */
         setTimeout(() => { if (!gotTest) pullResults(true); }, 3000);

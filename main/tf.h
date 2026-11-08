@@ -109,6 +109,16 @@ void tf_info(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
         return TF_SKIP;                                                        \
     } while (0)
 
+/* 直接判失败，不占断言计数。
+ * 用于"走到这里就说明板子有问题"的分支：这类判断不是断言（没有期望值可比），
+ * 但结论是确定的失败。千万别用 TF_SKIP 表达它 —— 跳过会被统计成"没测"，
+ * 让真实故障从报告里消失。 */
+#define TF_FAIL_MSG(fmt, ...)                                                 \
+    do {                                                                      \
+        snprintf(g_tf->msg, sizeof(g_tf->msg), fmt, ##__VA_ARGS__);            \
+        return TF_FAIL;                                                        \
+    } while (0)
+
 /* ---------------- 注册 ---------------- */
 
 #define TF_MAX_CASES 64

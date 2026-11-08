@@ -527,15 +527,16 @@ static tf_result_t t_capture_level(void)
 
     if (hi_l.rms < MIC_RMS_MIN) {
         if (hi_r.rms >= MIC_RMS_MIN) {
-            TF_SKIP("左声道无信号但右声道有（R RMS=%d）：WS/slot 对齐反了，"
-                    "ADC 数据落在右 slot", hi_r.rms);
+            TF_FAIL_MSG("左声道无信号但右声道有（R RMS=%d）：WS/slot 对齐反了，"
+                        "ADC 数据落在右 slot", hi_r.rms);
         }
         if (hi_l.nonzero == 0) {
-            TF_SKIP("左声道全 0：模拟侧没有电压（MIC 未贴 / 无偏置 / 隔直电容缺失）。"
-                    "先看 audio.dig_loop，它已验证数字通路是否正常");
+            TF_FAIL_MSG("左声道全 0：模拟侧没有电压（MIC 未贴 / 无偏置 / "
+                        "隔直电容缺失）。先看 audio.dig_loop 确认数字通路是否正常");
         }
-        TF_SKIP("左声道信号过弱（RMS=%d < %d），检查偏置与隔直电容",
-                hi_l.rms, MIC_RMS_MIN);
+        TF_FAIL_MSG("左声道信号过弱（RMS=%d < %d）：检查偏置与隔直电容。"
+                    "麦克风无效属于硬件故障，不能按跳过处理",
+                    hi_l.rms, MIC_RMS_MIN);
     }
 
     /* 有信号，但拉到 0 dB 后幅度基本不变 → 这段"信号"不是从 MIC PGA 来的
