@@ -14,6 +14,12 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
+# 托管要求每个静态资源请求都带 ?sharecode=，而浏览器自己拼的 URL（manifest、
+# apple-touch-icon、icons[]）不会带查询串 → 会在模板里写成 ?__LAB_ASSET__，
+# 这里统一注入。分享码不算密钥，链接本来就是公开的；可用 LAB_SHARECODE 覆盖。
+SHARECODE = os.environ.get('LAB_SHARECODE', 'ECSHHOLNDL')
+ASSET_QS = 'sharecode=' + SHARECODE
+
 
 def read(name):
     with open(os.path.join(HERE, name), encoding='utf-8') as f:
@@ -44,11 +50,24 @@ def main():
     tpl = tpl.replace('<!--@crypto-->', '<script>\n' + sec + '\n</script>')
     tpl = tpl.replace('<!--@app-->', '<script>\n' + app + '\n</script>')
 
+    tpl = tpl.replace('__LAB_ASSET__', ASSET_QS)
+    if '__LAB_' in tpl:
+        sys.exit('index.html 里还有未替换的 __LAB_ 占位符，检查 template.html')
+
     out = os.path.join(HERE, 'index.html')
     with open(out, 'w', encoding='utf-8', newline='\n') as f:
         f.write(tpl)
 
+    # 桌面图标：manifest 里的图标 URL 同样要带 sharecode，且必须是相对 index 的路径
+    man = read('manifest.template.json').replace('__LAB_ASSET__', ASSET_QS)
+    if '__LAB_' in man:
+        sys.exit('manifest.template.json 里还有未替换的 __LAB_ 占位符')
+    man_out = os.path.join(HERE, 'manifest.webmanifest')
+    with open(man_out, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(man)
+
     print('已生成 %s  (%d 字节)' % (out, len(tpl.encode('utf-8'))))
+    print('已生成 %s  (%d 字节)' % (man_out, len(man.encode('utf-8'))))
 
 
 if __name__ == '__main__':

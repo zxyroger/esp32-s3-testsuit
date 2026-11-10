@@ -36,7 +36,8 @@ static const char *TAG = "cam_mqtt";
 #define DEF_HOST          "broker.emqx.io"
 #define DEF_PORT          8883
 #define DEF_TOPIC         SECRET_MQTT_PREFIX "/jpg"
-#define DEF_RATE          2          /* 帧/秒，公共 broker 别贪 */
+#define DEF_RATE          1          /* 帧/秒。按当前出口实测上行 ~5 KB/s 定的：
+                                      * 单帧压到 3 KB 左右才发得完，2 fps 会一直卡在写里 */
 #define KEEPALIVE_S       60
 #define META_EVERY_S      10
 
@@ -138,17 +139,39 @@ static int enc_remlen(uint8_t *p, int len)
     return n;
 }
 
+/* 把一段数据完整写进 TLS。
+ *
+ * esp_tls_conn_write 在 socket 发送缓冲满时会返回 ESP_TLS_ERR_SSL_WANT_WRITE
+ * （WANT_READ 也可能出现，握手/重协商需要读）。这些是"稍后再试"而不是错误：
+ * 以前直接当失败返回 -1，于是只要载荷超过一次能塞进缓冲的量就必然失败 ——
+ * 表现是 8 KB 的帧每发一次就断连重连，而 200 B 的电池、3.8 KB 的自检结果都正常。
+ * 现在按瞬态处理，退让后重试，累计超过 5 秒才算真断。 */
 static int tls_write_all(const void *data, int len)
 {
     const uint8_t *p = (const uint8_t *)data;
     int left = len;
+    int64_t t0 = esp_timer_get_time();
     while (left > 0) {
         int w = esp_tls_conn_write(s_tls, p, left);
-        if (w <= 0) {
-            return -1;
+        if (w > 0) {
+            p += w;
+            left -= w;
+            continue;
         }
-        p += w;
-        left -= w;
+        if (w == ESP_TLS_ERR_SSL_WANT_WRITE || w == ESP_TLS_ERR_SSL_WANT_READ ||
+            w == ESP_TLS_ERR_SSL_TIMEOUT) {
+            /* 总时长上限，而不是"连续等待"上限：出口限速时每次只挤进几十字节，
+             * 若每写成功一次就清零计时，会永远不超时——锁被这一帧永久占住，
+             * 挑战码和电池消息全部等锁超时，命令通道就此失效（实测踩过）。 */
+            if ((esp_timer_get_time() - t0) / 1000 > 15000) {
+                ESP_LOGW(TAG, "写超时：%d 字节没发出去（15 s 上限）", left);
+                return -1;
+            }
+            vTaskDelay(pdMS_TO_TICKS(10));
+            continue;
+        }
+        ESP_LOGW(TAG, "写失败：w=%d（剩余 %d 字节）", w, left);
+        return -1;
     }
     return 0;
 }
@@ -332,23 +355,19 @@ static bool mqtt_publish_secure(const char *topic, const uint8_t *data, int len)
     return mqtt_publish_secure_ex(topic, data, len, false);
 }
 
-/* 所有发布都从这里进：拿不到锁就放弃这一条（QoS0 本来就是可丢的），
- * 绝不阻塞推流任务。电池 JSON 每条 200 字节，实际几乎不会等。 */
+/* 帧专用发布（只有推流任务调用）。帧是可丢的：拿不到锁就跳过这一帧，
+ * 绝不排队等待 —— 等下去会连下一条消息本该拿到锁的时间一起耗掉，
+ * 挑战码/电池这类小消息会被饿死（日志里刷"发送互斥超时"就是这个）。 */
 static bool mqtt_publish(const char *topic, const uint8_t *data, int len)
 {
     if (!s_up || s_tls == NULL) {
         return false;
     }
-    bool locked = false;
-    if (s_tx_lock != NULL) {
-        locked = (xSemaphoreTake(s_tx_lock, pdMS_TO_TICKS(2000)) == pdTRUE);
-        if (!locked) {
-            ESP_LOGW(TAG, "发送互斥超时，丢弃一条 %s", topic);
-            return false;
-        }
+    if (s_tx_lock != NULL && xSemaphoreTake(s_tx_lock, 0) != pdTRUE) {
+        return false;
     }
     bool ok = mqtt_publish_raw(topic, data, len);
-    if (locked) {
+    if (s_tx_lock != NULL) {
         xSemaphoreGive(s_tx_lock);
     }
     return ok;

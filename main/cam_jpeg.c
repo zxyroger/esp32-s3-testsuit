@@ -58,6 +58,7 @@
  */
 #include "cam_jpeg.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "board.h"
@@ -69,8 +70,125 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
+#include "nvs.h"
+#include "nvs_flash.h"
 
 static const char *TAG = "cam_jpeg";
+
+/* ---- 摄像头参数持久化 ----------------------------------------------------
+ * 以前分辨率/画质/抗闪/增益上限只活在 RAM 里，板子一看门狗复位就掉回 QVGA，
+ * 画面被 2 倍拉伸、横纹看着更重（今天已经踩了三次）。这里把四项存进 NVS，
+ * 上电/复位后自动恢复；下面的编译默认值是 NVS 为空（首次烧录）时的兜底。 */
+#define CAMCFG_NVS_NS   "camcfg"
+#define CAMCFG_DEF_FS   FRAMESIZE_SVGA      /* 800x600 */
+#define CAMCFG_DEF_Q    38                 /* 0 最好 / 63 最省，配合公网带宽 */
+#define CAMCFG_DEF_HZ   1                 /* 1 = 50 Hz（国内市电），0 = 60 Hz */
+#define CAMCFG_DEF_GC   2                 /* AGC 增益上限 2x */
+#define CAMCFG_DEF_PCLK 8                 /* R_DVP_SP 的 PCLK 分频，驱动 JPEG 默认 8 */
+
+typedef struct {
+    framesize_t fs;
+    uint8_t     q;
+    uint8_t     hz;
+    uint8_t     gc;
+    uint8_t     pclk;
+} camcfg_t;
+
+static camcfg_t s_cfg_cam = {
+    CAMCFG_DEF_FS, CAMCFG_DEF_Q, CAMCFG_DEF_HZ, CAMCFG_DEF_GC, CAMCFG_DEF_PCLK
+};
+
+static void camcfg_load(void)
+{
+    nvs_handle_t h;
+    /* 用 READWRITE 打开：namespace 不存在时会自动创建，并把编译默认值逐项
+     * 写进去 —— 「默认参数」是真的落在 NVS 里，不是只活在代码里。 */
+    if (nvs_open(CAMCFG_NVS_NS, NVS_READWRITE, &h) != ESP_OK) {
+        ESP_LOGW(TAG, "摄像头参数：NVS 打不开，用编译默认 %dx%d/q%d",
+                 resolution[CAMCFG_DEF_FS].width,
+                 resolution[CAMCFG_DEF_FS].height, CAMCFG_DEF_Q);
+        return;
+    }
+    uint8_t v = 0;
+    bool dirty = false;
+
+    if (nvs_get_u8(h, "fs", &v) != ESP_OK) {
+        v = (uint8_t)CAMCFG_DEF_FS; nvs_set_u8(h, "fs", v); dirty = true;
+    }
+    if (v <= FRAMESIZE_XGA) s_cfg_cam.fs = (framesize_t)v;
+
+    if (nvs_get_u8(h, "q", &v) != ESP_OK) {
+        v = CAMCFG_DEF_Q; nvs_set_u8(h, "q", v); dirty = true;
+    }
+    if (v <= 63) s_cfg_cam.q = v;
+
+    if (nvs_get_u8(h, "hz", &v) != ESP_OK) {
+        v = CAMCFG_DEF_HZ; nvs_set_u8(h, "hz", v); dirty = true;
+    }
+    if (v <= 1) s_cfg_cam.hz = v;
+
+    if (nvs_get_u8(h, "gc", &v) != ESP_OK) {
+        v = CAMCFG_DEF_GC; nvs_set_u8(h, "gc", v); dirty = true;
+    }
+    switch (v) {
+    case 2: case 4: case 8: case 16: case 32: case 64: case 128:
+        s_cfg_cam.gc = v; break;
+    default: break;
+    }
+
+    if (nvs_get_u8(h, "pclk", &v) != ESP_OK) {
+        v = CAMCFG_DEF_PCLK; nvs_set_u8(h, "pclk", v); dirty = true;
+    }
+    if (v >= 4 && v <= 64) s_cfg_cam.pclk = v;
+
+    if (dirty) nvs_commit(h);
+    nvs_close(h);
+    ESP_LOGI(TAG, "摄像头参数已从 NVS 恢复：%dx%d / q%d / %sHz / 增益 %dx / PCLK分频 %d",
+             resolution[s_cfg_cam.fs].width, resolution[s_cfg_cam.fs].height,
+             s_cfg_cam.q, s_cfg_cam.hz ? "50" : "60", s_cfg_cam.gc,
+             s_cfg_cam.pclk);
+}
+
+static void camcfg_save(const char *key, uint8_t v)
+{
+    nvs_handle_t h;
+    if (nvs_open(CAMCFG_NVS_NS, NVS_READWRITE, &h) != ESP_OK) {
+        ESP_LOGW(TAG, "摄像头参数保存失败（NVS 打不开）");
+        return;
+    }
+    nvs_set_u8(h, key, v);
+    nvs_commit(h);
+    nvs_close(h);
+}
+
+static gainceiling_t camcfg_gc_enum(int x)
+{
+    switch (x) {
+    case 2:   return GAINCEILING_2X;
+    case 4:   return GAINCEILING_4X;
+    case 8:   return GAINCEILING_8X;
+    case 16:  return GAINCEILING_16X;
+    case 32:  return GAINCEILING_32X;
+    case 64:  return GAINCEILING_64X;
+    case 128: return GAINCEILING_128X;
+    default:  return GAINCEILING_2X;
+    }
+}
+
+/* R_DVP_SP（DSP bank 0xD3）：低 7 位是 PCLK 分频，bit7 = auto 模式。
+ * esp32-camera 在 JPEG 模式把它写死成 8。SVGA(800x600) 下实测会出现
+ * 横向撕裂/色带，像是 DVP 采样余量不够；调大分频降低 PCLK 可以换回稳定，
+ * 代价是帧率下降。做成运行时可调并存 NVS，方便按实机选最优值。 */
+static void apply_pclk(sensor_t *s)
+{
+    if (s == NULL || s->set_reg == NULL) {
+        return;
+    }
+    uint8_t v = (uint8_t)(s_cfg_cam.pclk & 0x7F);
+    int r = s->set_reg(s, 0x00D3, 0xFF, v);
+    ESP_LOGI(TAG, "PCLK 分频 = %d（R_DVP_SP=0x%02X，返回 %d）",
+             s_cfg_cam.pclk, v, r);
+}
 
 /**
  * 一路 JPEG 的最大字节数，必须等于 sdkconfig 的
@@ -150,7 +268,8 @@ static esp_err_t cam_hw_prepare(cam_t *cam, axp2101_t *pmic)
  * 第二部分：esp32-camera 配置与采集任务
  * ══════════════════════════════════════════════════════════════════════ */
 
-static const camera_config_t s_cam_cfg = {
+/* 非 const：启动时 camcfg_load() 会用 NVS 里保存的分辨率/画质覆盖它 */
+static camera_config_t s_cam_cfg = {
     /* 三个 -1 都是刻意的，各自对应一条踩过的坑：
      *   pin_pwdn  = -1  本工程自己拉 PWDN（cam_pwdn），避免组件在
      *                   我们上电流程中间把它翻一次
@@ -186,12 +305,12 @@ static const camera_config_t s_cam_cfg = {
     .ledc_channel = LEDC_CHANNEL_7,
 
     .pixel_format = PIXFORMAT_JPEG,      /* OV2640 硬件直出 JPEG，不占 CPU */
-    /* 默认 QVGA：这一版的主链路是 MQTT 出公网，带宽是瓶颈而不是像素。
-     * VGA(q10) 实测 40~70 KB/帧，300 ms RTT 下只有 0.7 fps；
-     * QVGA(q20) 10~16 KB/帧，能稳在 2~3 fps。局域网要看大图发 cam res vga，
-     * 注意运行时切换会和推流任务抢 DMA 缓冲，命令里已经先暂停推流。 */
-    .frame_size   = FRAMESIZE_QVGA,
-    .jpeg_quality = 24,                  /* 0~63，越小越清晰体积越大 */
+    /* 编译默认 SVGA(800x600)/q38：分辨率比 VGA 高 56%，q 调大让单帧体积和
+     * 原来的 VGA/q30 接近，公网带宽不至于被拖垮。
+     * 真正生效的值在 cam_jpeg_start() 里由 NVS 覆盖（camcfg_load），
+     * 所以 cam res / cam q 改过的参数复位后能自动恢复。 */
+    .frame_size   = CAMCFG_DEF_FS,
+    .jpeg_quality = CAMCFG_DEF_Q,
 
     .fb_count     = 2,                   /* 双缓冲：一块在写、一块可取 */
     .fb_location  = CAMERA_FB_IN_PSRAM,  /* 内部 RAM 留给 WiFi */
@@ -352,7 +471,11 @@ esp_err_t cam_jpeg_start(cam_t *cam, axp2101_t *pmic)
 
     /* 3) 驱动初始化。组件内部按 probe -> reset -> set_framesize ->
      *    set_pixformat -> set_quality -> cam_start 的顺序做完，
-     *    日志里会打印 PID / 检测到的型号 / 缓冲大小。 */
+     *    日志里会打印 PID / 检测到的型号 / 缓冲大小。
+     *    先读 NVS，用上次保存的分辨率/画质覆盖编译默认值 —— 复位不再掉回 QVGA。 */
+    camcfg_load();
+    s_cam_cfg.frame_size   = s_cfg_cam.fs;
+    s_cam_cfg.jpeg_quality = s_cfg_cam.q;
     if (!s_j.inited) {
         err = esp_camera_init(&s_cam_cfg);
         if (err != ESP_OK) {
@@ -367,8 +490,32 @@ esp_err_t cam_jpeg_start(cam_t *cam, axp2101_t *pmic)
     /* 4) 取分辨率核对一次：组件可能因为传感器档位上限而改过 */
     sensor_t *s = esp_camera_sensor_get();
     if (s != NULL) {
-        s_j.stat.width  = resolution[s->status.framesize].width;
-        s_j.stat.height = resolution[s->status.framesize].height;
+        /* 坏点校正（BPC）：esp32-camera 的 OV2640 初始化序列漏写了 CTRL3 bit7，
+         * 而 Linux 官方驱动是开的（CTRL3=0xD0）。暗光下坏点会以散点/热像素冒出来，
+         * 这里补上。WPC 初始化序列里已开，BPC 单独补。 */
+        if (s->set_bpc) {
+            s->set_bpc(s, 1);
+        }
+        /* AGC 增益上限设为 2x，对齐 ai-esp 官方 OV2640 参数（新版 esp_cam_sensor
+         * 的 ov2640_settings_cif 写死 COM9_AGC_GAIN_2x）。esp32-camera 旧驱动的
+         * 初始化序列默认是 8x —— 暗光下 AEC 会把增益拉到 8x，行读出横纹幅度随
+         * 增益被放大最多 8 倍；压到 2x 后，暗光宁可欠曝（靠更长曝光补光）也不再
+         * 拉高增益，从源头压低暗光横纹。白天增益本就低（gain≈0x03），不受影响。 */
+        if (s->set_gainceiling) {
+            s->set_gainceiling(s, camcfg_gc_enum(s_cfg_cam.gc));
+        }
+        /* 抗闪频段跟着 NVS 恢复（组件默认 60Hz，国内市电是 50Hz）。
+         * 只写寄存器不写 NVS，避免把刚读出来的值又回写一遍。 */
+        if (s->set_reg && s->set_exposure_ctrl) {
+            s->set_exposure_ctrl(s, 1);
+            s->set_reg(s, 0x010C, 0x06, s_cfg_cam.hz ? 0x04 : 0x00);
+        }
+        /* 驱动在 set_window() 里会重置 R_DVP_SP，所以必须在 init 之后再写一次 */
+        apply_pclk(s);
+        s_res_w = resolution[s->status.framesize].width;
+        s_res_h = resolution[s->status.framesize].height;
+        s_j.stat.width  = (uint16_t)s_res_w;
+        s_j.stat.height = (uint16_t)s_res_h;
         ESP_LOGI(TAG, "传感器状态：PID=0x%02X framesize=%d(%dx%d) pixformat=%d",
                  s->id.PID, s->status.framesize, s_j.stat.width, s_j.stat.height,
                  s->pixformat);
@@ -533,10 +680,15 @@ esp_err_t cam_jpeg_set_quality(int q)
     }
     int r = s->set_quality(s, q);
     ESP_LOGI(TAG, "JPEG 质量 = %d（0 最好 / 63 最省），返回 %d", q, r);
-    return (r == 0) ? ESP_OK : ESP_FAIL;
+    if (r == 0) {
+        s_cfg_cam.q = (uint8_t)q;
+        camcfg_save("q", (uint8_t)q);
+        return ESP_OK;
+    }
+    return ESP_FAIL;
 }
 
-esp_err_t cam_jpeg_set_res(bool vga)
+esp_err_t cam_jpeg_set_framesize(int fs)
 {
     if (!s_j.inited) {
         return ESP_ERR_INVALID_STATE;
@@ -545,16 +697,20 @@ esp_err_t cam_jpeg_set_res(bool vga)
     if (s == NULL || s->set_framesize == NULL) {
         return ESP_ERR_NOT_SUPPORTED;
     }
+    if (fs < 0 || fs > FRAMESIZE_XGA) {
+        return ESP_ERR_INVALID_ARG;
+    }
 
-    framesize_t fs = vga ? FRAMESIZE_VGA : FRAMESIZE_QVGA;
-    int r = s->set_framesize(s, fs);
+    int r = s->set_framesize(s, (framesize_t)fs);
     if (r != 0) {
         ESP_LOGE(TAG, "切分辨率失败（set_framesize 返回 %d）", r);
         return ESP_FAIL;
     }
+    /* set_framesize 内部会重写 R_DVP_SP，把保存的 PCLK 分频补回去 */
+    apply_pclk(s);
 
-    s_res_w = vga ? 640 : 320;
-    s_res_h = vga ? 480 : 240;
+    s_res_w = resolution[s->status.framesize].width;
+    s_res_h = resolution[s->status.framesize].height;
     s_j.stat.width  = (uint16_t)s_res_w;
     s_j.stat.height = (uint16_t)s_res_h;
 
@@ -564,7 +720,34 @@ esp_err_t cam_jpeg_set_res(bool vga)
     s_j.pub_len = 0;
     s_j.t_start = esp_timer_get_time();
 
-    ESP_LOGI(TAG, "输出分辨率已切到 %dx%d", s_res_w, s_res_h);
+    /* 存进 NVS：以后看门狗/断电复位都直接回到这一档，不再掉回 QVGA */
+    s_cfg_cam.fs = s->status.framesize;
+    camcfg_save("fs", (uint8_t)s_cfg_cam.fs);
+    ESP_LOGI(TAG, "输出分辨率已切到 %dx%d（已存 NVS，复位后保持）", s_res_w, s_res_h);
+    return ESP_OK;
+}
+
+/* 旧接口保留，避免调用方全改一遍 */
+esp_err_t cam_jpeg_set_res(bool vga)
+{
+    return cam_jpeg_set_framesize(vga ? FRAMESIZE_VGA : FRAMESIZE_QVGA);
+}
+
+esp_err_t cam_jpeg_set_pclk(int div)
+{
+    if (!s_j.inited) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (div < 4 || div > 64) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    sensor_t *s = esp_camera_sensor_get();
+    if (s == NULL || s->set_reg == NULL) {
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+    s_cfg_cam.pclk = (uint8_t)div;
+    apply_pclk(s);
+    camcfg_save("pclk", (uint8_t)div);
     return ESP_OK;
 }
 
@@ -578,30 +761,75 @@ esp_err_t cam_jpeg_set_50hz(bool on)
         return ESP_ERR_NOT_SUPPORTED;
     }
 
-    /* 寄存器编码：高字节 bit0 是 bank，低字节是地址。
-     * 0x01xx 即 BANK_SENSOR。 */
+    /* OV2640 的 50/60Hz 抗闪选择在 COM3（地址 0x0C）的 bit2:1：
+     *   0b01(0x02) = 自动   0b10(0x04) = 50Hz   0b00(0x00) = 60Hz
+     * 组件初始化序列没写 COM3，默认 0x38 → 60Hz；中国市电是 50Hz，
+     * 暗光长曝光下 banding 就会把曝光对齐到错误的周期，横纹反而更重。
+     *
+     * 注意：BD50/BD60 那两个寄存器（0x4F/0x50）驱动已经按当前分辨率算好，
+     * 这里不用碰。旧代码写 0x2E/0x2C 是别的寄存器，导致一开就过曝全白。 */
+    int r;
     if (on) {
-        /* 必须让 AEC 开着，banding filter 是靠 AEC 把曝光时间对齐到
-         * 10 ms 的整数倍来实现的 —— 曝光锁死反而没得调。 */
+        /* banding 靠 AEC 把曝光对齐到 10 ms 整数倍，曝光必须由 AEC 控制 */
         s->set_exposure_ctrl(s, 1);
-
-        /* BD50 步长：QVGA 一行的行时间约 167 us，10 ms / 167 us ≈ 60 行，
-         * 下面三个值按 60 行算。不同分辨率行时间会变，换分辨率要重算。 */
-        s->set_reg(s, 0x012E, 0xFF, 0x3C);   /* BD50     = 60 行 */
-        s->set_reg(s, 0x012C, 0xFF, 0x78);   /* BD50MAX  = 120 行 */
-        s->set_reg(s, 0x0113, 0x20, 0x20);   /* COM8 bit5: banding 使能 */
-
-        ESP_LOGI(TAG, "已切到 50 Hz 抗闪（BD50=60 行，曝光交给 AEC）");
+        r = s->set_reg(s, 0x010C, 0x06, 0x04);   /* COM3(sensor bank) band = 50Hz */
+        ESP_LOGI(TAG, "抗闪已切 50 Hz（COM3 band=10b，返回 %d）", r);
     } else {
-        s->set_reg(s, 0x0113, 0x20, 0x00);   /* COM8 bit5 清 0 */
-        ESP_LOGI(TAG, "已关闭 50 Hz 抗闪");
+        r = s->set_reg(s, 0x010C, 0x06, 0x00);   /* COM3(sensor bank) band = 60Hz */
+        ESP_LOGI(TAG, "抗闪已切 60 Hz（COM3 band=00b，返回 %d）", r);
     }
-    return ESP_OK;
+    if (r == 0) {
+        s_cfg_cam.hz = on ? 1 : 0;
+        camcfg_save("hz", s_cfg_cam.hz);
+        return ESP_OK;
+    }
+    return ESP_FAIL;
+}
+
+void cam_jpeg_dump_status(void)
+{
+    cam_t *cam = board_camera();
+    if (cam == NULL || !cam->sccb_ok) {
+        printf("[CAM] 摄像头未就绪（先 cam start）\n");
+        return;
+    }
+    sensor_t *s = esp_camera_sensor_get();
+    if (s == NULL || s->set_reg == NULL) {
+        printf("[CAM] 传感器句柄无效\n");
+        return;
+    }
+
+    /* 把 bank 同步到 sensor bank：用组件的 set_reg 做一次无害读改写。
+     * 它会 set_bank(1)，让组件内部的 bank 缓存和芯片实际 bank 都停在
+     * sensor bank —— 之后下面 cam_reg_read 直接读就是对的，也不会破坏
+     * 组件的缓存（cam_reg_read 本身不切 bank）。 */
+    s->set_reg(s, 0x010C, 0x00, 0x00);
+
+    uint8_t r45 = 0, aec = 0, r04 = 0, gain = 0, com3 = 0, com8 = 0;
+    cam_reg_read(cam, 0x45, &r45);
+    cam_reg_read(cam, 0x10, &aec);
+    cam_reg_read(cam, 0x04, &r04);
+    cam_reg_read(cam, 0x00, &gain);
+    cam_reg_read(cam, 0x0C, &com3);
+    cam_reg_read(cam, 0x13, &com8);
+
+    int aec_lines = ((r45 & 0x3F) << 10) | (aec << 2) | (r04 & 0x03);
+    const char *band = (com3 & 0x06) == 0x04 ? "50Hz"
+                     : (com3 & 0x06) == 0x02 ? "auto" : "60Hz";
+    printf("[CAM] AEC=%d行 gain=0x%02X COM3=0x%02X(%s) COM8=0x%02X"
+           "(AEC=%d AGC=%d BAND=%d)\n",
+           aec_lines, gain, com3, band, com8,
+           com8 & 0x01, (com8 >> 2) & 1, (com8 >> 5) & 1);
+    printf("[CAM] 当前输出 %dx%d | NVS 默认: %dx%d / q%d / %s / 增益 %dx / PCLK分频 %d\n",
+           resolution[s->status.framesize].width,
+           resolution[s->status.framesize].height,
+           resolution[s_cfg_cam.fs].width, resolution[s_cfg_cam.fs].height,
+           s_cfg_cam.q, s_cfg_cam.hz ? "50Hz" : "60Hz", s_cfg_cam.gc,
+           s_cfg_cam.pclk);
 }
 
 esp_err_t cam_jpeg_set_denoise(int level)
-{
-    if (!s_j.inited) {
+{    if (!s_j.inited) {
         return ESP_ERR_INVALID_STATE;
     }
     sensor_t *s = esp_camera_sensor_get();
@@ -629,20 +857,18 @@ esp_err_t cam_jpeg_set_gain_ceiling(int x)
         return ESP_ERR_NOT_SUPPORTED;
     }
     /* 直接把倍数映射到枚举：枚举顺序就是 2/4/8/16/32/64/128 */
-    gainceiling_t gc;
     switch (x) {
-    case 2:   gc = GAINCEILING_2X;   break;
-    case 4:   gc = GAINCEILING_4X;   break;
-    case 8:   gc = GAINCEILING_8X;   break;
-    case 16:  gc = GAINCEILING_16X;  break;
-    case 32:  gc = GAINCEILING_32X;  break;
-    case 64:  gc = GAINCEILING_64X;  break;
-    case 128: gc = GAINCEILING_128X; break;
-    default:  return ESP_ERR_INVALID_ARG;
+    case 2: case 4: case 8: case 16: case 32: case 64: case 128: break;
+    default: return ESP_ERR_INVALID_ARG;
     }
-    int r = s->set_gainceiling(s, gc);
+    int r = s->set_gainceiling(s, camcfg_gc_enum(x));
     ESP_LOGI(TAG, "增益上限 = %dx，返回 %d", x, r);
-    return (r == 0) ? ESP_OK : ESP_FAIL;
+    if (r == 0) {
+        s_cfg_cam.gc = (uint8_t)x;
+        camcfg_save("gc", (uint8_t)x);
+        return ESP_OK;
+    }
+    return ESP_FAIL;
 }
 
 esp_err_t cam_jpeg_set_gray(bool on)

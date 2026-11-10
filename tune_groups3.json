@@ -1,0 +1,26 @@
+{
+  "_comment": "第三轮：6 个候选交错重复 3 轮，消除场景/光照时间漂移；用平均 gain 与平均 sharp 定案",
+  "groups": [
+    ["A1 现状", {}],
+    ["B1 保留FFC+RNRO", {"m0": 6.5, "alpha": 0.70, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.40}],
+    ["C1 去RNRO", {"rn": 0, "ro": 0, "m0": 6.5, "alpha": 0.70, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.40}],
+    ["D1 去FFC", {"ffc": 0, "m0": 6.5, "alpha": 0.70, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.40}],
+    ["E1 去FFC去RNRO", {"ffc": 0, "rn": 0, "ro": 0, "m0": 7, "alpha": 0.80, "vlp": 1, "vlpK": 2, "vlpLam": 0.8, "sharp": 0.40}],
+    ["F1 lam1.0", {"m0": 6.5, "alpha": 0.75, "vlp": 1, "vlpK": 2, "vlpLam": 1.0, "sharp": 0.40}],
+
+    ["A2 现状", {}],
+    ["B2 保留FFC+RNRO", {"m0": 6.5, "alpha": 0.70, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.40}],
+    ["C2 去RNRO", {"rn": 0, "ro": 0, "m0": 6.5, "alpha": 0.70, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.40}],
+    ["D2 去FFC", {"ffc": 0, "m0": 6.5, "alpha": 0.70, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.40}],
+    ["E2 去FFC去RNRO", {"ffc": 0, "rn": 0, "ro": 0, "m0": 7, "alpha": 0.80, "vlp": 1, "vlpK": 2, "vlpLam": 0.8, "sharp": 0.40}],
+    ["F2 lam1.0", {"m0": 6.5, "alpha": 0.75, "vlp": 1, "vlpK": 2, "vlpLam": 1.0, "sharp": 0.40}],
+
+    ["A3 现状", {}],
+    ["B3 保留FFC+RNRO", {"m0": 6.5, "alpha": 0.70, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.40}],
+    ["C3 去RNRO", {"rn": 0, "ro": 0, "m0": 6.5, "alpha": 0.70, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.40}],
+    ["D3 去FFC", {"ffc": 0, "m0": 6.5, "alpha": 0.70, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.40}],
+    ["E3 去FFC去RNRO", {"ffc": 0, "rn": 0, "ro": 0, "m0": 7, "alpha": 0.80, "vlp": 1, "vlpK": 2, "vlpLam": 0.8, "sharp": 0.40}],
+    ["F3 lam1.0", {"m0": 6.5, "alpha": 0.75, "vlp": 1, "vlpK": 2, "vlpLam": 1.0, "sharp": 0.40}]
+  ],
+  "ffc_groups": []
+}

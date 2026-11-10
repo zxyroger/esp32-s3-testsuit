@@ -51,7 +51,11 @@ viewer/                网页控制台
   app.js               业务逻辑
   mqtt-lite.js         手写 MQTT over WebSocket 客户端
   crypto.js            WebCrypto AES-GCM 解密
-  build.py             把上面几份内联成单文件 index.html
+  build.py             把上面几份内联成单文件 index.html，并生成 manifest
+  make_icons.py        画桌面图标（PWA / apple-touch-icon / favicon）
+  icons/               图标产物
+  sw.js                service worker（只直通、不缓存，满足安卓 WebAPK 条件）
+  manifest.template.json  PWA 清单模板（分享码由 build.py 注入）
 docs/                  硬件笔记与测试项说明
 *.py                   调试工具（帧率统计、命令通道、串口桥接、电池循环）
 ```
@@ -115,6 +119,46 @@ cd viewer && python build.py      # 生成内联了密钥的单文件 index.html
 
 `index.html` 直接双击打开即可（`file://` 也行），或者放到任意静态服务器上。
 页面连的是公共 broker，和板子不在同一个网络也能看图。
+
+### 5. 手机桌面图标
+
+页面带 manifest、`apple-touch-icon` 和 service worker，装好后是一个独立图标，
+打开即全屏（没有地址栏和搜索框），点开就连 MQTT，不需要和板子同一个 WiFi。
+
+- **Android（Chrome / Edge）**：右上「⋮」→ **安装应用**（注意不是「添加到主屏幕」）。
+  两者差别很大：
+  - 「安装应用」生成 WebAPK，独立窗口、**无地址栏**，任务栏里是独立应用；
+  - 「添加到主屏幕」只生成浏览器快捷方式，打开仍带浏览器外壳（地址栏/搜索框）。
+
+  页面底部会先出现一条「添加到桌面，全屏无地址栏」的提示，点「安装」可直接弹系统安装框。
+  **之前加过旧图标的，先长按删掉再装**，否则还是旧快捷方式。
+- **iPhone / iPad（Safari）**：分享 →「添加到主屏幕」。
+  图标与名称取 `apple-touch-icon`（180px）和 `<meta name="apple-mobile-web-app-title">`；
+  必须用 Safari 添加，用微信/Chrome 打开再添加只会得到书签快捷方式。
+
+`viewer/sw.js` 只做网络直通、**不缓存任何东西**——它存在的唯一目的是满足安卓生成 WebAPK
+的条件（带 fetch 处理器的 service worker）。不加缓存是故意的：页面是内联单文件、更新频繁，
+一旦缓存就会出现「线上改了、手机还是旧页面」。
+
+图标是 `viewer/icons/` 下的 PNG，改样子改 `viewer/make_icons.py` 后重跑：
+
+```bash
+cd viewer && python make_icons.py && python build.py
+```
+
+`build.py` 会顺带生成 `manifest.webmanifest`，并把分享码注入到 manifest / 图标 / `sw.js`
+的 URL（托管要求每个静态资源请求都带 `?sharecode=`，浏览器自己拼的 URL 不会带）。
+发布时 `icons/`、`sw.js`、`manifest.webmanifest` 要跟 `index.html` 一起在目录里。
+
+## 验证
+
+```bash
+python pwa_check.py "https://esp32-serial-portal.app.workbuddy.host/?sharecode=ECSHHOLNDL"
+python ui_check.py android "https://esp32-serial-portal.app.workbuddy.host/?sharecode=ECSHHOLNDL"
+```
+
+前者查 manifest 解析与可安装性（`errors` 与 `installabilityErrors` 都应为空），
+后者用手机 UA 打开，输出 service worker 是否 active、安装提示条是否出现，并截图到 `shot_install_*.png`。
 
 ---
 

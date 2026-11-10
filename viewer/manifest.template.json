@@ -1,0 +1,35 @@
+{
+  "name": "ESP32-S3 板级测试台",
+  "short_name": "ESP32 测试台",
+  "description": "ESP32-S3 摄像头画面、串口控制台、电池状态与自测结果",
+  "lang": "zh-CN",
+  "id": "./?__LAB_ASSET__",
+  "start_url": "./?__LAB_ASSET__",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#0b0d10",
+  "theme_color": "#0b0d10",
+  "categories": ["utilities", "developer"],
+  "icons": [
+    {
+      "src": "./icons/icon-192.png?__LAB_ASSET__",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png?__LAB_ASSET__",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512-maskable.png?__LAB_ASSET__",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -59,7 +59,16 @@ def open_port(quiet=False):
         if _ser is not None and _ser.is_open:
             return True
         try:
-            _ser = serial.Serial(_args.port, _args.baud, timeout=0.05)
+            # dtr/rts 必须先设再 open：pyserial 的 Serial() 构造里就 open 了，
+            # 那时默认把两根线拉高，会经自动下载电路把 ESP32 复位一次。
+            # 属性 setter 在未打开时只记录状态，open() 时才真正下发。
+            _ser = serial.Serial()
+            _ser.port = _args.port
+            _ser.baudrate = _args.baud
+            _ser.timeout = 0.05
+            _ser.dtr = False
+            _ser.rts = False
+            _ser.open()
             if not quiet:
                 log('串口已打开', _args.port, _args.baud)
             return True
@@ -193,7 +202,8 @@ def mqtt_main():
         c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id='pc-serial-bridge')
     except AttributeError:
         c = mqtt.Client(client_id='pc-serial-bridge')
-    c.tls_set(cert_reqs=ssl.CERT_REQUIRED)
+    # 本机出口会把 TLS 1.3 的 ClientHello 直接重置（SSLEOFError），只有 1.2 能握手
+    c.tls_set(cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLSv1_2)
     c.on_connect = on_connect
     c.on_disconnect = on_disconnect
     c.on_message = on_message

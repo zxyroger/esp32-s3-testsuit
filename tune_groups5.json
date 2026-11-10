@@ -1,0 +1,21 @@
+{
+  "_comment": "第五轮：离线跨亮度扫描发现 vlpK=4 / lam=1.0 / alpha=0.92 / sharp=1.2 在暗光下远优于现状，且白天也可能更优。交错重复两轮在真实流验证，重点盯 sharp 是否回退。",
+  "groups": [
+    ["A1 现状基线", {}],
+    ["B1 全激进 K4", {"ffc": 0, "rn": 0, "ro": 0, "m0": 4, "alpha": 0.92, "vlp": 1, "vlpK": 4, "vlpLam": 1.0, "sharp": 1.20, "sharpH": 1}],
+    ["C1 只改 vlp K4", {"ffc": 0, "rn": 0, "ro": 0, "m0": 7, "alpha": 0.80, "vlp": 1, "vlpK": 4, "vlpLam": 1.0, "sharp": 0.80, "sharpH": 1}],
+    ["D1 中庸 K3", {"ffc": 0, "rn": 0, "ro": 0, "m0": 7, "alpha": 0.88, "vlp": 1, "vlpK": 3, "vlpLam": 1.0, "sharp": 1.00, "sharpH": 1}],
+    ["E1 只改 EMA/sharp", {"ffc": 0, "rn": 0, "ro": 0, "m0": 4, "alpha": 0.92, "vlp": 1, "vlpK": 2, "vlpLam": 0.8, "sharp": 1.20, "sharpH": 1}],
+    ["F1 K4 温和", {"ffc": 0, "rn": 0, "ro": 0, "m0": 7, "alpha": 0.85, "vlp": 1, "vlpK": 4, "vlpLam": 0.9, "sharp": 1.00, "sharpH": 1}],
+    ["G1 现状基线", {}],
+
+    ["G2 现状基线", {}],
+    ["F2 K4 温和", {"ffc": 0, "rn": 0, "ro": 0, "m0": 7, "alpha": 0.85, "vlp": 1, "vlpK": 4, "vlpLam": 0.9, "sharp": 1.00, "sharpH": 1}],
+    ["E2 只改 EMA/sharp", {"ffc": 0, "rn": 0, "ro": 0, "m0": 4, "alpha": 0.92, "vlp": 1, "vlpK": 2, "vlpLam": 0.8, "sharp": 1.20, "sharpH": 1}],
+    ["D2 中庸 K3", {"ffc": 0, "rn": 0, "ro": 0, "m0": 7, "alpha": 0.88, "vlp": 1, "vlpK": 3, "vlpLam": 1.0, "sharp": 1.00, "sharpH": 1}],
+    ["C2 只改 vlp K4", {"ffc": 0, "rn": 0, "ro": 0, "m0": 7, "alpha": 0.80, "vlp": 1, "vlpK": 4, "vlpLam": 1.0, "sharp": 0.80, "sharpH": 1}],
+    ["B2 全激进 K4", {"ffc": 0, "rn": 0, "ro": 0, "m0": 4, "alpha": 0.92, "vlp": 1, "vlpK": 4, "vlpLam": 1.0, "sharp": 1.20, "sharpH": 1}],
+    ["A2 现状基线", {}]
+  ],
+  "ffc_groups": []
+}

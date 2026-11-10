@@ -54,6 +54,9 @@ def read_remlen(sock):
 
 
 ctx = ssl.create_default_context()
+
+
+ctx.maximum_version = ssl.TLSVersion.TLSv1_2  # 本机出口会重置 TLS 1.3 的 ClientHello，强制 1.2 才能握手
 raw = socket.create_connection((HOST, PORT), timeout=10)
 sock = ctx.wrap_socket(raw, server_hostname=HOST)
 

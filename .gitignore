@@ -9,6 +9,8 @@ viewer/secrets.js
 # 里面带密钥，只在本地产出，不提交。
 # ═══════════════════════════════════════════════════════════════
 viewer/index.html
+# manifest 同理：build.py 会把分享码注入进去，图标 PNG 本身入库
+viewer/manifest.webmanifest
 
 # ═══════════════════════════════════════════════════════════════
 # ESP-IDF 构建产物
@@ -45,6 +47,11 @@ tools/*.part
 # 截图与抓帧结果
 shot_*.png
 mqtt_frame.jpg
+# 调参时抓的整批帧（frames_1700/、frames_day2night/ 等），动辄上千张
+frames*/
+frames/
+# 构建/调参日志（*.log 已在下面统一忽略，这里补上无扩展名的）
+build_log.txt
 
 # 根目录的调试产物：调参截图、抓帧、电池循环 CSV、旧页面草稿、临时地址
 /*.jpg

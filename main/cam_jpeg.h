@@ -115,8 +115,28 @@ esp_err_t cam_jpeg_set_quality(int q);
  */
 esp_err_t cam_jpeg_set_res(bool vga);
 
+/**
+ * 按 framesize_t 档位切分辨率（QVGA / VGA / SVGA / XGA 都行）。
+ * 成功会把档位写进 NVS，复位后自动恢复，不再掉回 QVGA。
+ * fs 取 esp_camera.h 的 framesize_t 枚举值。
+ */
+esp_err_t cam_jpeg_set_framesize(int fs);
+
+/**
+ * 调 PCLK 分频（4~64，默认 8）：越大 PCLK 越低，DVP 采样越稳但帧率越慢。
+ * SVGA 等高分辨率下若出现横向撕裂，调大它可换回稳定。成功会存进 NVS。
+ */
+esp_err_t cam_jpeg_set_pclk(int div);
+
 /** 开关 50 Hz 抗闪（banding filter）。国内室内灯下出横纹先试这个 */
 esp_err_t cam_jpeg_set_50hz(bool on);
+
+/**
+ * 打印传感器实时状态（AEC 曝光行数、增益、抗闪频段、AEC/AGC/banding 使能）。
+ * 只读不写，可安全反复调用。内部会用组件的 set_reg 做一次无害的 bank 同步，
+ * 避免破坏 esp32-camera 自己维护的寄存器 bank 缓存。
+ */
+void cam_jpeg_dump_status(void);
 
 /** 开关灰度（丢弃色度分量）。用于判断横纹是在亮度还是色度上 */
 esp_err_t cam_jpeg_set_gray(bool on);

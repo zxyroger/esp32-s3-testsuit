@@ -1,0 +1,15 @@
+{
+  "_comment": "第六轮：验证「始终启用的局部守卫」在真实静止流里是否明显牺牲横纹，并扫 locG0/locK。离线结论：G0=2 K=24 静止 flat 仅退化 4%，局部运动拖影降 73%。",
+  "groups": [
+    ["A1 旧守卫 G0", {"guardMode": 0, "m0": 7, "alpha": 0.85, "vlpK": 4, "vlpLam": 0.9, "sharp": 1.0, "sharpH": 1}],
+    ["B1 新 G2K24", {"guardMode": 1, "locG0": 2, "locK": 24, "m0": 7, "alpha": 0.85, "vlpK": 4, "vlpLam": 0.9, "sharp": 1.0, "sharpH": 1}],
+    ["C1 新 G1K16", {"guardMode": 1, "locG0": 1, "locK": 16, "m0": 7, "alpha": 0.85, "vlpK": 4, "vlpLam": 0.9, "sharp": 1.0, "sharpH": 1}],
+    ["D1 新 G2K12", {"guardMode": 1, "locG0": 2, "locK": 12, "m0": 7, "alpha": 0.85, "vlpK": 4, "vlpLam": 0.9, "sharp": 1.0, "sharpH": 1}],
+
+    ["D2 新 G2K12", {"guardMode": 1, "locG0": 2, "locK": 12, "m0": 7, "alpha": 0.85, "vlpK": 4, "vlpLam": 0.9, "sharp": 1.0, "sharpH": 1}],
+    ["C2 新 G1K16", {"guardMode": 1, "locG0": 1, "locK": 16, "m0": 7, "alpha": 0.85, "vlpK": 4, "vlpLam": 0.9, "sharp": 1.0, "sharpH": 1}],
+    ["B2 新 G2K24", {"guardMode": 1, "locG0": 2, "locK": 24, "m0": 7, "alpha": 0.85, "vlpK": 4, "vlpLam": 0.9, "sharp": 1.0, "sharpH": 1}],
+    ["A2 旧守卫 G0", {"guardMode": 0, "m0": 7, "alpha": 0.85, "vlpK": 4, "vlpLam": 0.9, "sharp": 1.0, "sharpH": 1}]
+  ],
+  "ffc_groups": []
+}

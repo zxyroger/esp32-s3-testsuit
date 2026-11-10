@@ -93,7 +93,678 @@
   const elRes = $('res'), elSize = $('size'), elRx = $('rx');
   const hint = $('hint'), hintT = $('hintTitle'), hintS = $('hintSub');
 
-  let objUrl = null, frameCount = 0, byteCount = 0, totalBytes = 0, t0 = performance.now(), gotFirst = false;
+  let frameCount = 0, byteCount = 0, totalBytes = 0, t0 = performance.now(), gotFirst = false;
+
+  /* ───────────────────────── 横纹降噪 ─────────────────────────
+   * OV2640 暗光下有明显的行级噪声（row noise）：每一整行的亮度随机或固定地
+   * 抖动，看起来就是水平横纹。彩条干净证明不是传输/电源问题，是传感器模拟
+   * 前端固有特性。这里做两件事：
+   *   1. 时域 EMA 平均 —— 压掉每帧随机的行抖动（占大头）；
+   *   2. 行均值平滑归一化 —— 把每一行亮度拉回到它邻域的平滑均值，
+   *      保留场景真实的明暗渐变，只消掉逐行跳变。
+   * 两者都是纯前端处理，不改固件，也不动密钥/链路。 */
+  let bufCanvas = document.createElement('canvas');
+  const bctx = bufCanvas.getContext('2d', { willReadFrequently: true });
+  const fctx = img.getContext('2d', { willReadFrequently: true });
+  let acc = null;              // 时域累积的像素（Uint8ClampedArray）
+  let NR_ALPHA = 0.55;         // 时域平滑系数：越大越平均、也越容易拖影
+  const NR_LOCAL_K = 10;       // 局部差异阈值：超过它就认为这一像素在动/是边缘，不做时域平均
+  const NR_GUARD_M0 = 4;       // 静止帧 mad≈3.8~4.9；超过它才逐渐开启局部运动保护
+  const NR_GUARD_SPAN = 3;      // mad 从 M0 到 M0+SPAN 线性过渡到全力保护
+  let diffBuf = null;          // 逐像素帧间差异（复用）
+  let diffTmp = null;          // 横向 3 抽头平滑结果（复用）
+  /* 边缘自适应锐化缓冲：时域平均 + JPEG q30 会抹软细节，只在纹理/边缘区
+   * 补回一点高频，平坦天空 mask≈0，不会把横纹一起放大。 */
+  const SHARP_AMOUNT = 0.30, SHARP_G0 = 2, SHARP_KG = 8;
+  let sharpSrc = null, blurH = null, gradH = null, gradV = null;
+  let lumBuf = null;           // 行偏移校正用的逐像素亮度缓冲（复用，避免每帧分配）
+  let histBuf = new Uint16Array(256);
+
+  /* 固定行偏置 profile（flat-field 校正）—— 分块版。
+   *
+   * 为什么必须分块：整幅画面的「行均值」里混着场景本身的水平结构（楼房窗户
+   * 横排、楼层线）。把它当成传感器固定偏置减到整行上，会在大片平坦的天空
+   * 区域凭空造出原始画面里没有的水平暗带。实测平坦区横纹：原始 2.06、
+   * 整幅 profile 处理后 4.46（更糟），而分块只有 1.28。
+   * 另一个证据：把画面切成 4 个竖条，各自的固定行 profile 相关系数只有
+   * 0.02~0.63，甚至出现负相关 —— 横纹本来就不是「整行均匀」的。
+   *
+   * 做法：按列切 FFC_SEG 段，每段独立跨帧收敛自己的 R/G/B 行偏置，
+   * 应用时在段中心之间线性插值，避免竖直接缝。 */
+  const FFC_SEG    = 8;        // 每列分 8 段（VGA 下每段 80 px）
+  const FFC_K      = 25;       // 行均值低通半径：覆盖到约 50 行周期的横纹
+  const FFC_FAST_N = 20;       // 前 N 帧无条件简单平均（分块后每段像素少，需多几帧）
+  const FFC_ALPHA  = 0.05;     // 收敛后的慢 EMA：稳定跟踪固定偏置的缓慢漂移
+  const FFC_MAX    = 50;       // 单行偏移上限（实测 ±33~56），防把水平边缘误当横纹
+  const FFC_MOTION = 12;       // 建立期之后，仅低运动帧继续慢更新
+  let ffc = null;              // Float32Array(FFC_SEG*3*h)
+  let ffcSum = null;           // 快速收敛期的累加和
+  let ffcCount = 0;
+  let rmBuf = null;            // 分块行均值 FFC_SEG*3*h
+  let lpBuf = null;
+  let segW = 0;
+  let segS0 = null, segS1 = null, segF = null;  // 每列的插值索引与权重
+  let segOfX = null, segCount = null;           // 每列所属段 / 每段像素数
+
+  function rowNormalize(d, w, h) {
+    const rm = new Float32Array(h);
+    for (let y = 0; y < h; y++) {
+      let s = 0, b = y * w * 4;
+      for (let x = 0; x < w; x++) {
+        const i = b + x * 4;
+        s += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      }
+      rm[y] = s / w;
+    }
+    const sm = new Float32Array(h), K = 6;
+    for (let y = 0; y < h; y++) {
+      let s = 0, n = 0;
+      for (let j = y - K; j <= y + K; j++) {
+        if (j >= 0 && j < h) { s += rm[j]; n++; }
+      }
+      sm[y] = s / n;
+    }
+    const sc = new Float32Array(h);
+    for (let y = 0; y < h; y++) {
+      let v = sm[y] / (rm[y] || 1);
+      v = v < 0.3 ? 0.3 : (v > 3.0 ? 3.0 : v);
+      // 整幅行均值里混着场景的水平结构，满强度会把它们烤成新横带；
+      // 分块 profile 已经承担了主要校正，这里只保留 30% 做细纹收尾。
+      sc[y] = 1 + (v - 1) * 0.3;
+    }
+    for (let y = 0; y < h; y++) {
+      const s = sc[y], b = y * w * 4;
+      for (let x = 0; x < w; x++) {
+        const i = b + x * 4;
+        d[i] = d[i] * s; d[i + 1] = d[i + 1] * s; d[i + 2] = d[i + 2] * s;
+      }
+    }
+  }
+
+  // 加性行偏移校正：暗部横纹除了乘性增益差，还叠加了加性的读出/暗电流行偏移。
+  // 逐行取低分位（暗电平）估计该行的加性偏置，高通后按亮度权重只从暗像素里减掉，
+  // 亮部交给上面的乘性行归一化，二者互不干扰。
+  function rowOffsetSubtract(d, w, h) {
+    if (!lumBuf || lumBuf.length !== w * h) lumBuf = new Uint8Array(w * h);
+    const lo = new Float32Array(h);
+    for (let y = 0; y < h; y++) {
+      histBuf.fill(0);
+      const b = y * w * 4;
+      for (let x = 0; x < w; x++) {
+        const i = b + x * 4;
+        const L = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+        const q = L < 0 ? 0 : (L > 255 ? 255 : L | 0);
+        lumBuf[x + y * w] = q;
+        histBuf[q]++;
+      }
+      const target = (w * 8 / 100) | 0;   // 第 8 分位作为该行暗电平
+      let acc = 0, v = 0;
+      for (let bin = 0; bin < 256; bin++) {
+        acc += histBuf[bin];
+        if (acc >= target) { v = bin; break; }
+      }
+      lo[y] = v;
+    }
+    const sm = new Float32Array(h), K = 12;
+    for (let y = 0; y < h; y++) {
+      let s = 0, n = 0;
+      for (let j = y - K; j <= y + K; j++) {
+        if (j >= 0 && j < h) { s += lo[j]; n++; }
+      }
+      sm[y] = s / n;
+    }
+    for (let y = 0; y < h; y++) {
+      const off = lo[y] - sm[y];
+      if (off === 0) continue;
+      const b = y * w * 4;
+      for (let x = 0; x < w; x++) {
+        const i = b + x * 4;
+        const L = lumBuf[x + y * w];
+        if (L >= 90) continue;
+        const wgt = 1 - L / 90;
+        d[i]     -= off * wgt;
+        d[i + 1] -= off * wgt;
+        d[i + 2] -= off * wgt;
+      }
+    }
+  }
+
+  // 固定行偏移 profile：跨帧累积传感器固定的行读出偏置（flat-field 校正），
+  // R/G/B 三通道各自独立。先算每行每通道均值，再做 21 行宽的低通当作「场景真
+  // 亮度」，两者之差就是该行该通道的细横纹偏置；低运动帧才把它慢 EMA 进
+  // profile，运动帧只应用不更新，避免把运动的水平边缘烤成永久假纹。
+  function fixedRowProfile(d, w, h, mad) {
+    if (TUNE.resetFfc) {
+      TUNE.resetFfc = 0;
+      if (ffc) { ffc.fill(0); ffcSum.fill(0); ffcCount = 0; }
+    }
+    const N = FFC_SEG * 3 * h;
+    if (!rmBuf || rmBuf.length !== N || segW !== w / FFC_SEG) {
+      rmBuf = new Float32Array(N);
+      lpBuf = new Float32Array(N);
+      ffc = new Float32Array(N);       // 分辨率变了，profile 重来
+      ffcSum = new Float32Array(N);
+      ffcCount = 0;
+      segW = w / FFC_SEG;
+      segS0 = new Uint8Array(w);
+      segS1 = new Uint8Array(w);
+      segF = new Float32Array(w);
+      segOfX = new Uint8Array(w);
+      for (let x = 0; x < w; x++) {
+        let s = (x / segW) | 0;
+        if (s > FFC_SEG - 1) s = FFC_SEG - 1;
+        segOfX[x] = s;
+        // 段中心之间的线性插值：t = x/segW - 0.5
+        let t = x / segW - 0.5;
+        if (t < 0) t = 0; else if (t > FFC_SEG - 1) t = FFC_SEG - 1;
+        const s0 = Math.floor(t);
+        segS0[x] = s0;
+        segS1[x] = s0 + 1 < FFC_SEG ? s0 + 1 : FFC_SEG - 1;
+        segF[x] = t - s0;
+      }
+      segCount = new Int32Array(FFC_SEG);
+      for (let x = 0; x < w; x++) segCount[segOfX[x]]++;
+    }
+
+    // 1) 每段每通道的行均值（分段累加，结构不跨段传播）
+    rmBuf.fill(0);
+    for (let y = 0; y < h; y++) {
+      const b = y * w * 4;
+      for (let x = 0; x < w; x++) {
+        const i = b + x * 4;
+        const o = segOfX[x] * 3 * h + y;
+        rmBuf[o] += d[i];
+        rmBuf[o + h] += d[i + 1];
+        rmBuf[o + 2 * h] += d[i + 2];
+      }
+    }
+    for (let s = 0; s < FFC_SEG; s++) {
+      const inv = 1 / (segCount[s] || 1);
+      const o = s * 3 * h;
+      for (let j = 0; j < 3 * h; j++) rmBuf[o + j] *= inv;
+    }
+
+    // 2) 每段自己的行均值低通（半径 TUNE.ffcK），两者之差＝该段的行偏置
+    for (let s = 0; s < FFC_SEG; s++) {
+      for (let c = 0; c < 3; c++) {
+        const o = s * 3 * h + c * h;
+        for (let y = 0; y < h; y++) {
+          let sum = 0, n = 0;
+          const lo = y - TUNE.ffcK > 0 ? y - TUNE.ffcK : 0;
+          const hi = y + TUNE.ffcK < h - 1 ? y + TUNE.ffcK : h - 1;
+          for (let j = lo; j <= hi; j++) { sum += rmBuf[o + j]; n++; }
+          lpBuf[o + y] = sum / n;
+        }
+      }
+    }
+
+    // 3) 建立期无条件累积（室外有风也不会卡住），之后才用运动门控慢更新
+    const fast = ffcCount < TUNE.ffcFast;
+    if (fast || mad < TUNE.ffcMotion) {
+      for (let i = 0; i < N; i++) {
+        let r = rmBuf[i] - lpBuf[i];
+        if (r > TUNE.ffcMax) r = TUNE.ffcMax;
+        else if (r < -TUNE.ffcMax) r = -TUNE.ffcMax;
+        if (fast) {
+          ffcSum[i] += r;
+          ffc[i] = ffcSum[i] / (ffcCount + 1);
+        } else {
+          ffc[i] += (r - ffc[i]) * TUNE.ffcAlpha;
+        }
+      }
+      ffcCount++;
+    }
+
+    // 4) 应用：每段中心之间线性插值，避免竖直接缝
+    if (ffcCount === 0) return;
+    for (let y = 0; y < h; y++) {
+      const b = y * w * 4;
+      for (let x = 0; x < w; x++) {
+        const i = b + x * 4;
+        const a0 = segS0[x] * 3 * h + y;
+        const a1 = segS1[x] * 3 * h + y;
+        const f = segF[x], g = 1 - f;
+        d[i]     -= ffc[a0] * g + ffc[a1] * f;
+        d[i + 1] -= ffc[a0 + h] * g + ffc[a1 + h] * f;
+        d[i + 2] -= ffc[a0 + 2 * h] * g + ffc[a1 + 2 * h] * f;
+      }
+    }
+    window.__ffc = { seg: FFC_SEG, count: ffcCount, k: TUNE.ffcK };
+  }
+
+  // 暗部去饱和：暗光下色度信噪比极低，紫色/绿色噪斑很碍眼，把暗像素往灰度收缩
+  function desatDark(d, w, h, thresh) {
+    for (let i = 0; i < d.length; i += 4) {
+      const L = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      const t = L < thresh ? L / thresh : 1;
+      const g = (d[i] + d[i + 1] + d[i + 2]) / 3;
+      d[i]     = g + (d[i]     - g) * t;
+      d[i + 1] = g + (d[i + 1] - g) * t;
+      d[i + 2] = g + (d[i + 2] - g) * t;
+    }
+  }
+
+  /* 边缘自适应轻度锐化。
+   * 时域平均和 JPEG q30 都会把细节抹软。这里取 3x3 均值当低频、原图减低频当高频，
+   * 再按「局部梯度」加权补回：纹理/边缘区梯度大 -> 正常补，平坦天空梯度≈0 -> 不补，
+   * 所以横纹不会被一起放大。实测静止帧锐度回到原始水平，平坦区横纹只 +0.04。 */
+  function sharpenEdge(d, w, h) {
+    const nPix = w * h;
+    if (!sharpSrc || sharpSrc.length !== d.length) {
+      sharpSrc = new Uint8ClampedArray(d.length);
+      blurH = new Float32Array(d.length);
+      gradH = new Float32Array(nPix);
+      gradV = new Float32Array(nPix);
+    }
+    sharpSrc.set(d);
+
+    // 1) 横向 3 抽头模糊 + 前向差分梯度（都从副本读，避免原地修改串扰）
+    for (let y = 0; y < h; y++) {
+      const row = y * w;
+      for (let x = 0; x < w; x++) {
+        const p = row + x, i = p * 4;
+        const il = x > 0 ? i - 4 : i;
+        const ir = x < w - 1 ? i + 4 : i;
+        for (let c = 0; c < 3; c++) {
+          blurH[i + c] = (sharpSrc[il + c] + sharpSrc[i + c] + sharpSrc[ir + c]) / 3;
+        }
+        const id = y < h - 1 ? i + w * 4 : i;
+        const lc = 0.299 * sharpSrc[i] + 0.587 * sharpSrc[i + 1] + 0.114 * sharpSrc[i + 2];
+        const lr = 0.299 * sharpSrc[ir] + 0.587 * sharpSrc[ir + 1] + 0.114 * sharpSrc[ir + 2];
+        const ld = 0.299 * sharpSrc[id] + 0.587 * sharpSrc[id + 1] + 0.114 * sharpSrc[id + 2];
+        gradH[p] = (Math.abs(lc - lr) + Math.abs(lc - ld)) / 2;
+      }
+    }
+    // 2) 梯度横向 3 抽头平滑
+    for (let y = 0; y < h; y++) {
+      const row = y * w;
+      for (let x = 0; x < w; x++) {
+        const p = row + x;
+        const l = x > 0 ? gradH[p - 1] : gradH[p];
+        const r = x < w - 1 ? gradH[p + 1] : gradH[p];
+        gradV[p] = (l + gradH[p] + r) / 3;
+      }
+    }
+    // 3) 纵向合成 + 按 mask 补高频
+    for (let y = 0; y < h; y++) {
+      const row = y * w;
+      const up = y > 0 ? -w : 0, dn = y < h - 1 ? w : 0;
+      const bu = y > 0 ? -w * 4 : 0, bd = y < h - 1 ? w * 4 : 0;
+      for (let x = 0; x < w; x++) {
+        const p = row + x, i = p * 4;
+        const loc = (gradV[p + up] + gradV[p] + gradV[p + dn]) / 3;
+        let mask = (loc - SHARP_G0) / SHARP_KG;
+        if (mask <= 0) continue;
+        if (mask > 1) mask = 1;
+        const am = EFF.sharp * mask;
+        const av = (EFF.sharpV || 0) * mask;
+        for (let c = 0; c < 3; c++) {
+          /* 横向分量：只补水平方向的高频，不放大被抹平的行纹。
+           * 纵向分量（av）：专门补回 vlp 纵向低通吃掉的「横边」（桌沿、墙面
+           * 转角、窗框上下沿）。它是可调的，因为纵向 unsharp 在原理上会
+           * 重新强调行间差异，必须实测 band4 不回升才敢开大。 */
+          const blur = TUNE.sharpH
+            ? blurH[i + c]
+            : (blurH[i + bu + c] + blurH[i + c] + blurH[i + bd + c]) / 3;
+          const bl = TUNE.sharpH
+            ? (sharpSrc[i + bu + c] + sharpSrc[i + c] + sharpSrc[i + bd + c]) / 3
+            : blur;
+          d[i + c] = sharpSrc[i + c] + am * (sharpSrc[i + c] - blur)
+                   + av * (sharpSrc[i + c] - bl);
+        }
+      }
+    }
+  }
+
+  /* 运行时可调参数：调试时注入 window.__TUNE 即可热改，用于真实流上做
+   * 消融与参数扫描。正常用户不会触碰。
+   *
+   * 2026-11-10 SVGA 真实流三轮交错扫描定案（见 tune_scan_result*.json）：
+   *   - 旧管线（分块 FFC + 整行归一化/偏移 + 3x3 锐化 + guard 常开）
+   *     在当前场景下平坦区横纹平均是「负增益」，即会制造横带；
+   *   - 方向性平坦区纵向低通(vlp) 是降纹主力；EMA alpha 与守卫门限
+   *     必须提高，否则时域降噪被半开的 guard 削弱；
+   *   - 纵向低通只损失垂直细节，所以锐化必须只补水平方向(sharpH=1)，
+   *     3x3 全向锐化会把刚抹平的行纹一起放大。
+   * 最终：横纹 -70%，锐度相对原图仅 -1.5%。FFC/RN/RO 代码保留为开关，
+   * 供暗光场景重新启用（暗光下固定行 FPN 更强）。 */
+  const TUNE = {
+    m0: 7, span: 3, alpha: 0.85,
+    sharp: 1.00, sharpH: 1, sharpV: 0.35,
+    ffcK: 25, ffcAlpha: 0.05, ffcFast: 20, ffcMotion: 12, ffcMax: 50,
+    ema: 1, ffc: 0, rn: 0, ro: 0, sharpOn: 1,
+    vlp: 1, vlpK: 4, vlpLam: 0.9, vlpG0: 2, vlpKg: 8,
+    resetFfc: 0, rot: 1, auto: 1,
+    guardMode: 1, locR0: 2.0, locRK: 1.5,
+    flicker: 1, flickerS: 0.85, flickerL: 95,
+    /* 列条带校正（column FPN）：与之前跨帧学习的 fixedColProfile 不同，
+     * 这里只在当前帧内估计——行带内「列方向高通残差」的均值就是条带，
+     * 逐列减掉即可。跨帧 profile 之所以失败是因为图案随时间漂移，
+     * 单帧估计没有这个假设。离线（18:20~18:40 实拍）col4 0.39→0.22、
+     * acut 只掉 1~3%。夜间帧率低、单帧噪声大，所以学习率/强度做钳位。 */
+    colFix: 0, colClamp: 2.5,
+  };
+  /* 亮度自适应：跨亮度扫描（sim14_lowlight.py，数字增益 L118→L28）表明，
+   * 光照下降时 AGC 抬升会让固定行 FPN 与随机噪声同时变强，白天标定参数
+   * 在 L28 时降噪率会从 77% 掉到 18%。因此随亮度平滑地把
+   *   纵向低通强度 0.9→1.0、时域平均 0.85→0.90、锐化 1.0→0.8
+   * 缓变；锐化反向调小是为了避免暗光下把噪点一起放大（视觉 A/B 中
+   * 全激进组 sharp=1.2 在暗区明显过锐）。lightEMA 做时间平滑，避免
+   * 云影/单帧噪声引起参数抖动。TUNE.auto=0 时完全等价于固定参数，
+   * 供 tune_scan.py 做消融扫描使用。 */
+  const EFF = { alpha: 0.85, m0: 7, vlpLam: 0.9, sharp: 1.0, sharpV: 0 };
+  let lightEMA = -1, autoT = 0;
+  function updateAdaptive(d) {
+    if (!TUNE.auto) {
+      EFF.alpha = TUNE.alpha; EFF.m0 = TUNE.m0;
+      EFF.vlpLam = TUNE.vlpLam; EFF.sharp = TUNE.sharp; EFF.sharpV = TUNE.sharpV || 0;
+      autoT = 0;
+      return;
+    }
+    let s = 0, n = 0;
+    for (let i = 0; i < d.length; i += 16) {   // 每 4 像素抽样，够稳且几乎零开销
+      s += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      n++;
+    }
+    const L = s / (n || 1);
+    lightEMA = lightEMA < 0 ? L : lightEMA + (L - lightEMA) * 0.12;
+    let t = (105 - lightEMA) / 70;            // L>=105 白天，L<=35 入夜
+    if (t < 0) t = 0; else if (t > 1) t = 1;
+    autoT = t;
+    EFF.vlpLam = TUNE.vlpLam + 0.10 * t;
+    EFF.alpha = TUNE.alpha + 0.05 * t;
+    EFF.sharp = TUNE.sharp - 0.20 * t;
+    // 纵向锐化常开：模糊来自 vlp 纵向低通与 EMA，两者白天夜里都在起作用，
+    // 只按入夜程度补偿会在白天天亮时把「横边发软」留着。仅夜间略加强。
+    EFF.sharpV = (TUNE.sharpV || 0) * (1 + 0.3 * t);
+    EFF.m0 = TUNE.m0;
+    window.__auto = { L: +lightEMA.toFixed(1), t: +t.toFixed(2),
+                      eff: { alpha: +EFF.alpha.toFixed(2), lam: +EFF.vlpLam.toFixed(2),
+                             sharp: +EFF.sharp.toFixed(2) } };
+  }
+  window.__TUNE = TUNE;
+  /* 相机是侧装的，实测逆时针 90° 才是正立。转正后 600x800 竖版能铺满
+   * 手机视口（横版 800x600 只能占中间一条横带），缩放比 0.615→0.82，
+   * 显示混叠也更轻，因此默认转正；用户仍可点底部按钮切回。 */
+  try {
+    const saved = localStorage.getItem('labRot');
+    TUNE.rot = saved === null ? 1 : (parseInt(saved, 10) & 3);
+  } catch (e) { TUNE.rot = 1; }
+
+  /* 诊断：同一帧上比较「降噪前 / 降噪后」的平坦区横纹与锐度。
+   * 只在 URL 带 ?diag=1 时执行，正常观看零开销。指标与 cam_view_check.py
+   * 完全一致（80x80 块、最平坦 10 块的高通残差 std、纹理 10 块的梯度）。 */
+  const DIAG = location.search.indexOf('diag=1') >= 0;
+  let diagN = 0;
+  function measureFrame(d, w, h) {
+    const nP = w * h, L = new Float32Array(nP);
+    for (let p = 0, i = 0; p < nP; p++, i += 4) {
+      L[p] = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    }
+    const BW = 80, BH = 80, blocks = [];
+    for (let by = 0; by + BH <= h; by += BH) {
+      for (let bx = 0; bx + BW <= w; bx += BW) {
+        let s = 0, s2 = 0;
+        for (let y = by; y < by + BH; y++) {
+          const row = y * w;
+          for (let x = bx; x < bx + BW; x++) {
+            const v = L[row + x]; s += v; s2 += v * v;
+          }
+        }
+        const n = BW * BH, m = s / n;
+        blocks.push([Math.sqrt(Math.max(0, s2 / n - m * m)), by, bx]);
+      }
+    }
+    blocks.sort((a, b) => a[0] - b[0]);
+    const hp = [];
+    for (let k = 0; k < Math.min(10, blocks.length); k++) {
+      const by = blocks[k][1], bx = blocks[k][2], rr = new Float32Array(BH);
+      for (let y = 0; y < BH; y++) {
+        let s = 0;
+        for (let x = 0; x < BW; x++) s += L[(by + y) * w + bx + x];
+        rr[y] = s / BW;
+      }
+      for (let y = 0; y < BH; y++) {
+        let s = 0, c = 0;
+        for (let j = y - 8; j <= y + 8; j++) if (j >= 0 && j < BH) { s += rr[j]; c++; }
+        hp.push(rr[y] - s / c);
+      }
+    }
+    let m = 0;
+    for (const v of hp) m += v;
+    m /= hp.length || 1;
+    let vv = 0;
+    for (const v of hp) vv += (v - m) * (v - m);
+    const flat = Math.sqrt(vv / (hp.length || 1));
+    let gs = 0, gn = 0;
+    for (let k = Math.max(0, blocks.length - 10); k < blocks.length; k++) {
+      const by = blocks[k][1], bx = blocks[k][2];
+      let g = 0, c = 0;
+      for (let y = by; y < by + BH - 1; y++) {
+        for (let x = bx; x < bx + BW - 1; x++) {
+          const p = y * w + x;
+          g += Math.abs(L[p] - L[p + 1]) + Math.abs(L[p] - L[p + w]);
+          c++;
+        }
+      }
+      gs += g / c; gn++;
+    }
+    /* 入夜工频条带指标：行均值的 4 行高通残差。
+     * 旧的 flat（80 块内 8 行高通）对周期 4 行的密集条带几乎不敏感，
+     * 会出现「指标很干净、屏幕全是横线」的误判，必须单独盯这个数。 */
+    const r4 = new Float32Array(h);
+    for (let y = 0; y < h; y++) {
+      let s = 0;
+      for (let x = 0; x < w; x++) s += L[y * w + x];
+      r4[y] = s / w;
+    }
+    const b4 = [];
+    for (let y = 0; y < h; y++) {
+      let s = 0, c = 0;
+      for (let j = y - 4; j <= y + 4; j++) if (j >= 0 && j < h) { s += r4[j]; c++; }
+      b4.push(r4[y] - s / c);
+    }
+    let m4 = 0;
+    for (const v of b4) m4 += v;
+    m4 /= b4.length || 1;
+    let v4 = 0;
+    for (const v of b4) v4 += (v - m4) * (v - m4);
+    const band4 = Math.sqrt(v4 / (b4.length || 1));
+    // 列条纹指标：列均值的 9 抽头高通残差（对应传感器的列 FPN / 竖纹）
+    const c4 = new Float32Array(w);
+    for (let x = 0; x < w; x++) {
+      let s = 0;
+      for (let y = 0; y < h; y++) s += L[y * w + x];
+      c4[x] = s / h;
+    }
+    const vc = [];
+    for (let x = 0; x < w; x++) {
+      let s = 0, c = 0;
+      for (let j = x - 4; j <= x + 4; j++) if (j >= 0 && j < w) { s += c4[j]; c++; }
+      vc.push(c4[x] - s / c);
+    }
+    let mv = 0;
+    for (const v of vc) mv += v;
+    mv /= vc.length || 1;
+    let vv2 = 0;
+    for (const v of vc) vv2 += (v - mv) * (v - mv);
+    const col4 = Math.sqrt(vv2 / (vc.length || 1));
+
+    return { flat: +flat.toFixed(3), sharp: +(gs / (gn || 1)).toFixed(2),
+             band4: +band4.toFixed(2), col4: +col4.toFixed(2) };
+  }
+
+  /* 方向性平坦区纵向低通。
+   * 行纹的物理特征是「整行一致、沿 x 方向几乎不变」，而楼房细节在 x 方向
+   * 有梯度。用水平梯度做掩码，只在 gx 小的像素上做跨行均值，就能抹掉行纹
+   * 而保留竖直边缘。离线仿真 flat 0.588→0.440，锐度代价 <5%。 */
+  let vlpSrc = null, vlpGrad = null;
+  function directionalVlp(d, w, h) {
+    let K = TUNE.vlpK | 0;
+    if (K < 1) K = 1;
+    if (K > 4) K = 4;
+    const nP = w * h;
+    if (!vlpSrc || vlpSrc.length !== d.length) {
+      vlpSrc = new Uint8ClampedArray(d.length);
+      vlpGrad = new Float32Array(nP);
+    }
+    vlpSrc.set(d);
+
+    // 1) 水平梯度 gx + 纵向梯度 gy（都用 3 抽头平滑，避免单点噪声）
+    for (let y = 0; y < h; y++) {
+      const row = y * w;
+      for (let x = 0; x < w; x++) {
+        const p = row + x, i = p * 4;
+        const il = x > 0 ? i - 4 : i, ir = x < w - 1 ? i + 4 : i;
+        const iu = y > 0 ? i - w * 4 : i, id = y < h - 1 ? i + w * 4 : i;
+        const lx = 0.299 * vlpSrc[ir] + 0.587 * vlpSrc[ir + 1] + 0.114 * vlpSrc[ir + 2];
+        const ly = 0.299 * vlpSrc[id] + 0.587 * vlpSrc[id + 1] + 0.114 * vlpSrc[id + 2];
+        const lc = 0.299 * vlpSrc[i] + 0.587 * vlpSrc[i + 1] + 0.114 * vlpSrc[i + 2];
+        vlpGrad[p] = (Math.abs(lc - lx) + Math.abs(lc - ly)) / 2;
+      }
+    }
+    // 2) 掩码：纹理/边缘 ->1（保留原图），平坦区 ->0（用纵向均值）
+    for (let y = 0; y < h; y++) {
+      const row = y * w;
+      const up = y > 0 ? -w : 0, dn = y < h - 1 ? w : 0;
+      for (let x = 0; x < w; x++) {
+        const p = row + x, i = p * 4;
+        const l = x > 0 ? vlpGrad[p - 1] : vlpGrad[p];
+        const r = x < w - 1 ? vlpGrad[p + 1] : vlpGrad[p];
+        const loc = (l + vlpGrad[p] + r + vlpGrad[p + up] + vlpGrad[p + dn]) / 5;
+        let mask = (loc - TUNE.vlpG0) / TUNE.vlpKg;
+        if (mask > 1) mask = 1; else if (mask < 0) mask = 0;
+        const wgt = EFF.vlpLam * (1 - mask);
+        if (wgt <= 0) continue;
+        for (let c = 0; c < 3; c++) {
+          let s = 0;
+          for (let j = -K; j <= K; j++) {
+            const yy = y + j;
+            const ii = (yy < 0 ? 0 : (yy >= h ? h - 1 : yy)) * w * 4 + x * 4 + c;
+            s += vlpSrc[ii];
+          }
+          const avg = s / (2 * K + 1);
+          d[i + c] = vlpSrc[i + c] + wgt * (avg - vlpSrc[i + c]);
+        }
+      }
+    }
+  }
+
+  /* 入夜工频条带抑制。
+   * 实测（frames_dusk_1720 连续 8 帧）：路灯/室内灯 50Hz 与 rolling shutter
+   * 不同步时，会形成周期 3.7~4.6 行、帧间相位随机的密集条带 ——
+   * 帧间行残差相关只有 -0.02（固定 FPN 应 >0.8），每帧强度稳定但位置在变。
+   * 这种条纹多帧平均只能压一半，还会把 mad 撑到 11 让运动守卫误判、
+   * 反而关掉时域降噪。
+   * 做法：逐帧估计行增益 g(y) = 1 - s*hp(y)/rm(y)，hp 是行均值的 4 行高通
+   * 残差（周期 4 的条带在 9 点均值里接近抵消，残差最大），按行归一化后
+   * 再进 EMA。离线实测 band4 9.90 → 1.08（-89%），flat8 与原图持平，
+   * 不产生新的低频横带。只在暗光启用，白天关闭，避免把楼房的楼层/窗户
+   * 行结构误当成条纹压掉。 */
+  let flickRow = null, flickTmp = null;
+  function flickerRowNorm(d, w, h) {
+    if (!flickRow || flickRow.length !== h) {
+      flickRow = new Float32Array(h);
+      flickTmp = new Float32Array(h);
+    }
+    // 1) 行均值（三通道平均，只改亮度不动色度）
+    for (let y = 0; y < h; y++) {
+      const row = y * w * 4;
+      let s = 0;
+      for (let x = 0; x < w; x++) {
+        const i = row + x * 4;
+        s += d[i] + d[i + 1] + d[i + 2];
+      }
+      flickRow[y] = s / (w * 3);
+    }
+    // 2) 4 行高通残差
+    for (let y = 0; y < h; y++) {
+      let s = 0, c = 0;
+      const lo = y - 4 > 0 ? y - 4 : 0;
+      const hi = y + 4 < h ? y + 4 : h - 1;
+      for (let j = lo; j <= hi; j++) { s += flickRow[j]; c++; }
+      flickTmp[y] = flickRow[y] - s / c;
+    }
+    // 3) 逐行乘性校正（钳位避免纯黑行放大）
+    for (let y = 0; y < h; y++) {
+      const rm = flickRow[y];
+      let g = 1 - TUNE.flickerS * flickTmp[y] / (rm > 1 ? rm : 1);
+      if (g < 0.5) g = 0.5; else if (g > 2) g = 2;
+      const row = y * w * 4;
+      for (let x = 0; x < w; x++) {
+        const i = row + x * 4;
+        d[i] *= g; d[i + 1] *= g; d[i + 2] *= g;
+      }
+    }
+  }
+
+  /* 单帧列条带校正：逐行算「像素 - 左右邻均值」的残差，按列累加求均值，
+   * 得到一个 w 长的偏移向量，再从整幅减掉。条带在列方向是常量、在行方向
+   * 近似恒定，所以逐行残差求和能把真实纹理（行方向不成规律）平均掉。
+   * 唯一风险是画面里有长竖直边缘时会残留光晕，用 colClamp 钳位限制最大
+   * 修正量（夜间实测条带幅度只有 ±1.2 灰阶）。 */
+  let colSum = null, colRow = null, colOff = null;
+  function colOffsetFix(d, w, h) {
+    if (!colSum || colSum.length !== w) {
+      colSum = new Float32Array(w);
+      colRow = new Float32Array(w);
+      colOff = new Float32Array(w);
+    }
+    colSum.fill(0);
+    for (let y = 0; y < h; y++) {
+      const row = y * w * 4;
+      for (let x = 0; x < w; x++) {
+        const i = row + x * 4;
+        colRow[x] = (d[i] + d[i + 1] + d[i + 2]) * 0.3333333;
+      }
+      for (let x = 0; x < w; x++) {
+        const m = colRow[x];
+        const l = x > 0 ? colRow[x - 1] : m;
+        const r = x < w - 1 ? colRow[x + 1] : m;
+        colSum[x] += m - (l + m + r) * 0.3333333;
+      }
+    }
+    const cl = TUNE.colClamp || 2, inv = 1 / h;
+    for (let x = 0; x < w; x++) {
+      let o = colSum[x] * inv;
+      if (o > cl) o = cl; else if (o < -cl) o = -cl;
+      colOff[x] = o;
+    }
+    for (let y = 0; y < h; y++) {
+      const row = y * w * 4;
+      for (let x = 0; x < w; x++) {
+        const i = row + x * 4, o = colOff[x];
+        d[i] -= o; d[i + 1] -= o; d[i + 2] -= o;
+      }
+    }
+  }
+
+  /* 画面方向：相机是侧装的，实测逆时针 90° 才是楼顶朝上的正立画面。
+   * 用像素级重排而不是 CSS transform —— 后者旋转后宽高比与布局对不上，
+   * 会出现留白或溢出。默认 0° 保持现状，点底部按钮循环切换并记住选择。 */
+  function putFrame(cur, w, h) {
+    const rot = TUNE.rot & 3;
+    if (rot === 0) {
+      if (img.width !== w || img.height !== h) { img.width = w; img.height = h; }
+      fctx.putImageData(cur, 0, 0);
+      return;
+    }
+    const nw = (rot & 1) ? h : w, nh = (rot & 1) ? w : h;
+    if (img.width !== nw || img.height !== nh) { img.width = nw; img.height = nh; }
+    const out = fctx.createImageData(nw, nh);
+    const s = cur.data, t = out.data;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let nx, ny;
+        if (rot === 1) { nx = y; ny = w - 1 - x; }          // 逆时针 90
+        else if (rot === 3) { nx = h - 1 - y; ny = x; }      // 顺时针 90
+        else { nx = w - 1 - x; ny = h - 1 - y; }              // 180
+        const si = (y * w + x) * 4, di = (ny * nw + nx) * 4;
+        t[di] = s[si]; t[di + 1] = s[si + 1]; t[di + 2] = s[si + 2]; t[di + 3] = 255;
+      }
+    }
+    fctx.putImageData(out, 0, 0);
+  }
 
   /* 与板子内嵌页面同一套单位规则，保证两边数字读法一致 */
   function fmtK(n) {
@@ -107,13 +778,128 @@
     dot.className = 'dot ' + (kind || '');
   }
 
-  function onFrame(buf) {
-    // Blob + objectURL 比 base64 快，也不会把内存撑爆（旧 URL 记得回收）
-    const next = URL.createObjectURL(new Blob([buf], { type: 'image/jpeg' }));
-    const prev = objUrl;
-    img.src = next;
-    objUrl = next;
-    if (prev) setTimeout(() => URL.revokeObjectURL(prev), 1500);
+  async function onFrame(buf) {
+    // 解码 JPEG 到离屏 canvas，做时域平均 + 行归一化后再显示
+    let bmp;
+    try {
+      bmp = await createImageBitmap(new Blob([buf], { type: 'image/jpeg' }));
+    } catch (e) {
+      return;   // 解码失败（罕见），丢弃这一帧，不打断流
+    }
+
+    const w = bmp.width, h = bmp.height;
+    if (bufCanvas.width !== w || bufCanvas.height !== h) {
+      bufCanvas.width = w; bufCanvas.height = h;
+      img.width = w; img.height = h;
+      acc = null;              // 分辨率变了，累积缓冲重来
+    }
+    bctx.drawImage(bmp, 0, 0);
+    bmp.close();
+
+    const cur = bctx.getImageData(0, 0, w, h);
+    const d = cur.data;
+    const rawDiag = DIAG ? measureFrame(d, w, h) : null;
+    updateAdaptive(d);
+    if (TUNE.flicker && lightEMA < TUNE.flickerL) flickerRowNorm(d, w, h);
+    if (TUNE.colFix) colOffsetFix(d, w, h);
+
+    let mad = 0;
+    if (TUNE.ema && acc && acc.length === d.length) {
+      const nPix = w * h;
+      if (!diffBuf || diffBuf.length !== nPix) {
+        diffBuf = new Float32Array(nPix);
+        diffTmp = new Float32Array(nPix);
+      }
+      // 1) 逐像素帧间差异（三通道平均绝对差）。全局平均 mad 决定整体平滑强度。
+      let sum = 0;
+      for (let p = 0, i = 0; p < nPix; p++, i += 4) {
+        const a0 = d[i] - acc[i], a1 = d[i + 1] - acc[i + 1], a2 = d[i + 2] - acc[i + 2];
+        const v = ((a0 < 0 ? -a0 : a0) + (a1 < 0 ? -a1 : a1) + (a2 < 0 ? -a2 : a2)) / 3;
+        diffBuf[p] = v;
+        sum += v;
+      }
+      mad = sum / nPix;
+      // 极端运动才整体降平均强度；一般情况交给下面的局部守卫处理
+      NR_ALPHA = mad > 16 ? 0.30 : EFF.alpha;
+
+      /* 关键：静止时局部保护必须完全关闭。静止画面没有拖影，全局 EMA 是纯赚的
+       * （横纹压得最干净）；只有检测到运动时才逐渐启用局部权重，保住边缘/细节。
+       * 实测静止流 mad≈3.8~4.9，模拟运动 mad≈8~10。 */
+      let guard = (mad - EFF.m0) / TUNE.span;
+      if (guard < 0) guard = 0; else if (guard > 1) guard = 1;
+
+      /* 2) 3x3 局部平均差异。
+       * guardMode=1（默认）：不依赖全局 mad 开关，始终计算 —— 因为局部运动
+       * （一个人走过、占画面几个百分点）几乎不改变全局 mad，旧逻辑会让
+       * guard=0、EMA 全速平均，在运动区留下明显重影（离线实测 RMSE
+       * 25.8 vs 不做平均 5.9）。改成始终启用后，静止区差异只来自噪声
+       * （loc≈1~3 < locG0），权重仍≈1，横纹照压；运动区 loc 大，权重
+       * 自动降到 0，不留残影。实测静止 flat 只退化 4%，拖影降 73%。 */
+      if (guard > 0 || TUNE.guardMode) {
+        for (let y = 0; y < h; y++) {
+          const row = y * w;
+          for (let x = 0; x < w; x++) {
+            const p = row + x;
+            const l = x > 0 ? diffBuf[p - 1] : diffBuf[p];
+            const r = x < w - 1 ? diffBuf[p + 1] : diffBuf[p];
+            diffTmp[p] = (l + diffBuf[p] + r) / 3;
+          }
+        }
+      }
+      // 3) 运动自适应 EMA：平坦静止区照常多帧平均压噪声（横纹最显眼的地方），
+      //    运动处/边缘处权重降到 0，直接用当前帧 —— 不再把运动物体糊成重影。
+      const a = NR_ALPHA;
+      for (let y = 0; y < h; y++) {
+        const row = y * w;
+        const up = y > 0 ? -w : 0;
+        const dn = y < h - 1 ? w : 0;
+        for (let x = 0; x < w; x++) {
+          const p = row + x, i = p * 4;
+          let ae = a;
+          if (TUNE.guardMode) {
+            const loc = (diffTmp[p + up] + diffTmp[p] + diffTmp[p + dn]) / 3;
+            /* 用「局部差异 / 全局差异」的比值而不是绝对阈值：
+             * 静止时 loc≈mad（比值~0.8），权重≈1，照常强平均；
+             * 局部运动时 loc>>mad（比值>3），权重→0，不留拖影；
+             * 黄昏云影这类全局亮度变化，loc 与 mad 同步变大，比值仍~1，
+             * 因此不会被误判成运动而关掉降噪（旧绝对阈值会，云影下
+             * flat 0.475 vs 相对判据 0.429）。 */
+            const rr = loc / (mad + 1.0);
+            let wgt = 1 - (rr - TUNE.locR0) / TUNE.locRK;
+            if (wgt < 0) wgt = 0; else if (wgt > 1) wgt = 1;
+            ae = a * wgt;
+          } else if (guard > 0) {
+            const loc = (diffTmp[p + up] + diffTmp[p] + diffTmp[p + dn]) / 3;
+            let wgt = 1 - guard * loc / NR_LOCAL_K;
+            if (wgt < 0) wgt = 0;
+            ae = a * wgt;
+          }
+          const be = 1 - ae;
+          d[i]     = acc[i]     * ae + d[i]     * be;
+          d[i + 1] = acc[i + 1] * ae + d[i + 1] * be;
+          d[i + 2] = acc[i + 2] * ae + d[i + 2] * be;
+        }
+      }
+      acc.set(d);
+      window.__nr = { mad: +mad.toFixed(2), guard: +guard.toFixed(2), alpha: NR_ALPHA };
+    } else {
+      acc = new Uint8ClampedArray(d);
+    }
+
+    if (TUNE.ffc) fixedRowProfile(d, w, h, mad);
+    if (TUNE.rn) rowNormalize(d, w, h);
+    if (TUNE.ro) rowOffsetSubtract(d, w, h);
+    desatDark(d, w, h, 80);
+    if (TUNE.vlp) directionalVlp(d, w, h);
+    if (TUNE.sharpOn) sharpenEdge(d, w, h);
+    putFrame(cur, w, h);
+    if (DIAG) {
+      window.__diag = {
+        n: ++diagN,
+        raw: rawDiag, out: measureFrame(d, w, h),
+        ffcCount: ffcCount, mad: +mad.toFixed(2), nr: window.__nr,
+      };
+    }
 
     frameCount++;
     byteCount += buf.length;
@@ -135,7 +921,13 @@
   function onMeta(buf) {
     try {
       const m = JSON.parse(new TextDecoder().decode(buf));
-      if (m && m.w) elRes.textContent = m.w + '×' + m.h;
+      if (m && m.w) {
+        /* 相机侧装，转正后宽高互换；pill 要显示用户实际看到的尺寸，
+         * 否则会出现「标着 800×600、画面其实是 600×800」的矛盾。 */
+        const r = TUNE.rot & 3;
+        const dw = (r & 1) ? m.h : m.w, dh = (r & 1) ? m.w : m.h;
+        elRes.textContent = dw + '×' + dh;
+      }
     } catch (e) {}
   }
 
@@ -993,9 +1785,13 @@
       } else if (s === 'closed') {
         mqttOn = false;
         setState('重连中…', 'bad');
-        hint.classList.remove('hide');
-        hintT.textContent = '连接断了，正在重连';
-        hintS.textContent = '页面会自动恢复，不用刷新';
+        /* 中间提示只在「还没看到第一帧」时出现；一旦出过画面，断线就只靠
+         * 顶部状态点（红色 + 重连中）反馈，不再弹中间那行字打断观看。 */
+        if (!gotFirst) {
+          hint.classList.remove('hide');
+          hintT.textContent = '连接断了，正在重连';
+          hintS.textContent = '页面会自动恢复，不用刷新';
+        }
         paintBoard();
       } else if (s === 'retry') {
         mqttOn = false;
@@ -1009,6 +1805,21 @@
       }
     },
   });
+
+  /* 画面方向按钮：点一下逆时针 90° 转正，再点依次 180 / 顺时针 90 / 还原 */
+  const rotBtn = $('rotBtn');
+  const ROT_LABEL = ['0°', '⟲90°', '180°', '⟳90°'];
+  function paintRot() {
+    if (rotBtn) rotBtn.textContent = '方向 ' + (ROT_LABEL[TUNE.rot & 3] || '0°');
+  }
+  if (rotBtn) {
+    rotBtn.addEventListener('click', () => {
+      TUNE.rot = (TUNE.rot + 1) & 3;
+      try { localStorage.setItem('labRot', String(TUNE.rot)); } catch (e) {}
+      paintRot();
+    });
+  }
+  paintRot();
 
   /* ───────────────────────── 启动 ───────────────────────── */
   route();

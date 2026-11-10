@@ -72,6 +72,7 @@ def read_remlen(sock):
 
 def connect():
     ctx = ssl.create_default_context()
+    ctx.maximum_version = ssl.TLSVersion.TLSv1_2  # 本机出口会重置 TLS 1.3 的 ClientHello，强制 1.2 才能握手
     raw = socket.create_connection((HOST, PORT), timeout=10)
     sk = ctx.wrap_socket(raw, server_hostname=HOST)
     cid = "s3cyc%d" % (int(time.time() * 1000) % 1000000)

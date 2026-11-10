@@ -78,6 +78,9 @@ def rl(sk):
 
 
 ctx = ssl.create_default_context()
+
+
+ctx.maximum_version = ssl.TLSVersion.TLSv1_2  # 本机出口会重置 TLS 1.3 的 ClientHello，强制 1.2 才能握手
 sk = ctx.wrap_socket(socket.create_connection((HOST, PORT), timeout=10),
                      server_hostname=HOST)
 

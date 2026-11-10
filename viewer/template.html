@@ -7,6 +7,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ESP32 测试台">
+<meta name="application-name" content="ESP32 测试台">
+<link rel="manifest" href="./manifest.webmanifest?__LAB_ASSET__">
+<link rel="icon" type="image/png" sizes="32x32" href="./icons/icon-32.png?__LAB_ASSET__">
+<link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png?__LAB_ASSET__">
 <title>ESP32-S3 板级测试台</title>
 <style>
   :root {
@@ -25,12 +30,18 @@
     --mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { height: 100%; margin: 0; background: var(--bg); overflow: hidden; }
+  html, body { height: 100%; margin: 0; background: var(--bg); overflow: hidden; overscroll-behavior: none; }
   body {
     font: 13px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
     color: var(--text);
     -webkit-text-size-adjust: 100%;
+    /* App 手感：不选中文字、不长按弹菜单、不双击缩放、下拉不回弹刷新 */
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
   }
+  /* 需要复制的地方放行 */
+  input, textarea, pre, code, .sel { -webkit-user-select: text; user-select: text; }
 
   /* ---------- 页面容器 ---------- */
   #main { position: fixed; left: 0; right: 0; top: 0; bottom: calc(var(--tabh) + env(safe-area-inset-bottom)); }
@@ -64,6 +75,9 @@
     background: rgba(20,24,30,.72); border: 1px solid var(--line);
     letter-spacing: .2px; font-variant-numeric: tabular-nums;
   }
+  .pill.btn { pointer-events: auto; cursor: pointer; color: inherit; font: inherit;
+              letter-spacing: .2px; padding: 4px 9px; }
+  .pill.btn:active { background: rgba(255,255,255,.16); }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: #7d8794; flex: none; }
   .dot.ok { background: var(--ok); box-shadow: 0 0 8px rgba(53,208,127,.7); }
   .dot.warn { background: var(--warn); }
@@ -76,7 +90,8 @@
   .hud {
     position: absolute; top: 0; left: 0; right: 0;
     display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
-    padding: 8px 12px 10px; pointer-events: none;
+    /* 从桌面图标启动时没有地址栏，内容会顶到刘海/状态栏下面，这里让开安全区 */
+    padding: calc(8px + env(safe-area-inset-top)) 12px 10px; pointer-events: none;
     background: linear-gradient(180deg, rgba(0,0,0,.62), rgba(0,0,0,0));
   }
   .hud > div { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -97,7 +112,8 @@
 
   /* ---------- 串口 ---------- */
   .pbar {
-    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    display: flex; align-items: center; gap: 8px;
+    padding: calc(8px + env(safe-area-inset-top)) 12px 8px;
     border-bottom: 1px solid var(--line); background: var(--panel); flex: none;
   }
   .pbar .grow { flex: 1; min-width: 0; }
@@ -148,7 +164,7 @@
 
   /* ---------- 测试结果 ---------- */
   #page-tests { overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  .wrap { padding: 14px 12px 26px; max-width: 760px; margin: 0 auto; width: 100%; }
+  .wrap { padding: calc(14px + env(safe-area-inset-top)) 12px 26px; max-width: 760px; margin: 0 auto; width: 100%; }
   .lead { margin: 2px 0 10px; }
   .lead h1 { font-size: 16px; margin: 0 0 4px; font-weight: 650; letter-spacing: .2px; }
   .lead p { margin: 0; color: var(--dim); font-size: 12px; }
@@ -305,6 +321,30 @@
     max-width: 86vw; text-align: center;
   }
   .toast.show { opacity: .97; transform: translateX(-50%) translateY(0); }
+
+  /* ---------- 安装到桌面提示（只在浏览器里出现，装好就不再显示） ---------- */
+  #installbar {
+    position: fixed; left: 12px; right: 12px;
+    bottom: calc(var(--tabh) + env(safe-area-inset-bottom) + 12px);
+    z-index: 60; display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 12px;
+    background: rgba(23,28,35,.97); border: 1px solid var(--line);
+    box-shadow: 0 10px 28px rgba(0,0,0,.5);
+    font-size: 12.5px; line-height: 1.4; color: var(--text);
+    transition: opacity .22s, transform .22s;
+  }
+  #installbar[hidden] { display: none; }
+  #installbar.out { opacity: 0; transform: translateY(10px); pointer-events: none; }
+  #installbar .txt { flex: 1; min-width: 0; color: #cfd8e4; }
+  #installbar .txt b { color: var(--accent); font-weight: 600; }
+  #installbar button {
+    flex: none; font: inherit; font-size: 12px; border-radius: 8px; cursor: pointer;
+    padding: 6px 11px; border: 1px solid rgba(76,141,255,.5);
+    background: rgba(76,141,255,.16); color: #cfe0ff;
+  }
+  #installbar .x {
+    border: 0; background: transparent; color: var(--dim); padding: 4px 6px; font-size: 15px;
+  }
 </style>
 </head>
 <body>
@@ -313,7 +353,7 @@
 
   <!-- ============ 1. 画面 ============ -->
   <section class="page" id="page-cam">
-    <div id="stage"><img id="frame" alt=""></div>
+    <div id="stage"><canvas id="frame"></canvas></div>
     <div class="hud">
       <div>
         <span class="pill"><span class="dot" id="dot"></span><span id="state">连接中</span></span>
@@ -328,6 +368,7 @@
     </div>
     <div id="bottom">
       <span class="pill" id="size">—</span>
+      <button class="pill btn" id="rotBtn" title="切换画面方向">方向 0°</button>
       <span class="pill" id="rx">0 KB</span>
     </div>
   </section>
@@ -447,9 +488,99 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- 安装提示：只在浏览器里打开时出现；从桌面图标启动（standalone）不渲染 -->
+<div id="installbar" hidden>
+  <span class="txt" id="installTxt"></span>
+  <button id="installAct" type="button">安装</button>
+  <button class="x" id="installX" type="button" aria-label="关闭">×</button>
+</div>
+
 <!--@secrets-->
 <!--@mqtt-lite-->
 <!--@crypto-->
 <!--@app-->
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---- 注册 service worker --------------------------------------------------
+   * 安卓 Chrome 只有检测到带 fetch 处理器的 SW，才会把「添加到主屏幕」升级成
+   * WebAPK —— 独立窗口、没有地址栏和搜索框。SW 本身只做直通，不缓存。
+   * file:// 打开时跳过，失败也不影响页面使用。
+   */
+  var swable = location.protocol === 'https:' ||
+      location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  if (swable && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js?__LAB_ASSET__', { scope: './' })
+      .catch(function () {});
+  }
+
+  // 已经是独立窗口，说明装的没问题，不用提示
+  var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) ||
+      window.navigator.standalone === true;
+  if (standalone) return;
+
+  var ua = navigator.userAgent || '';
+  var isIOS = /iPad|iPhone|iPod/.test(ua) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var isAndroid = /Android/i.test(ua);
+  // 微信 / QQ / 钉钉这类内置浏览器加不了桌面图标，提示也没用
+  var inApp = /MicroMessenger|QQ\/|Weibo|AlipayClient|DingTalk|Lark|aweme/i.test(ua);
+  if (inApp) return;
+  if (!isIOS && !isAndroid) return;          // 桌面浏览器不打扰
+
+  var bar = document.getElementById('installbar');
+  var txt = document.getElementById('installTxt');
+  var act = document.getElementById('installAct');
+  var x = document.getElementById('installX');
+  if (!bar || !txt || !act || !x) return;
+
+  var KEY = 'lab.installbar';
+  try { if (localStorage.getItem(KEY) === 'off') return; } catch (e) {}
+
+  var deferred = null;
+
+  function hide(remember) {
+    bar.classList.add('out');
+    if (remember) { try { localStorage.setItem(KEY, 'off'); } catch (e) {} }
+    setTimeout(function () { bar.hidden = true; bar.classList.remove('out'); }, 240);
+  }
+
+  if (isIOS) {
+    txt.innerHTML = '点 <b>分享</b> → 添加到主屏幕，全屏打开';
+    act.textContent = '知道了';
+    act.onclick = function () { hide(true); };
+  } else {
+    txt.innerHTML = '添加到桌面，<b>全屏无地址栏</b>';
+    act.textContent = '安装';
+    act.onclick = function () {
+      if (deferred) { deferred.prompt(); deferred = null; return; }
+      txt.innerHTML = 'Chrome 菜单 <b>⋮</b> → 安装应用';
+      act.textContent = '知道了';
+      act.onclick = function () { hide(true); };
+    };
+  }
+
+  // 安卓 Chrome 允许安装时会给出这个事件，能一键弹系统安装框
+  if (isAndroid) {
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      deferred = e;
+      act.textContent = '安装';
+      act.onclick = function () {
+        if (deferred) { deferred.prompt(); deferred = null; }
+      };
+    });
+  }
+
+  window.addEventListener('appinstalled', function () { hide(true); });
+
+  x.onclick = function () { hide(true); };
+  bar.hidden = false;
+  // 12 秒没理就自己收起来，并且不再打扰（装了的人下次就是 standalone，也不会看到）
+  setTimeout(function () { if (!bar.hidden) hide(true); }, 12000);
+})();
+</script>
 </body>
 </html>

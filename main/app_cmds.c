@@ -14,6 +14,7 @@
 #include "axp2101.h"
 #include "batt_log.h"
 #include "cam_jpeg.h"
+#include "esp_camera.h"
 #include "cam_web.h"
 #include "ddns.h"
 #include "health.h"
@@ -828,6 +829,37 @@ static bool cmds_dispatch(const char *cmd)
         printf("[CAM] 已切 320x240（省带宽，公网更顺）\n\n");
         return true;
     }
+    if (strcmp(cmd, "cam res svga") == 0 || strcmp(cmd, "cam res 800") == 0) {
+        if (cam_reconfig_blocked()) {
+            return true;
+        }
+        esp_err_t e = cam_jpeg_set_framesize(FRAMESIZE_SVGA);
+        vTaskDelay(pdMS_TO_TICKS(300));
+        printf("[CAM] 已切 800x600（已存 NVS，复位保持）-> %s\n\n",
+               esp_err_to_name(e));
+        return true;
+    }
+    if (strcmp(cmd, "cam res xga") == 0 || strcmp(cmd, "cam res 1024") == 0) {
+        if (cam_reconfig_blocked()) {
+            return true;
+        }
+        esp_err_t e = cam_jpeg_set_framesize(FRAMESIZE_XGA);
+        vTaskDelay(pdMS_TO_TICKS(300));
+        printf("[CAM] 已切 1024x768（已存 NVS，复位保持；公网会很卡）-> %s\n\n",
+               esp_err_to_name(e));
+        return true;
+    }
+    if (strncmp(cmd, "cam pclk ", 9) == 0) {
+        int v = atoi(cmd + 9);
+        esp_err_t e = cam_jpeg_set_pclk(v);
+        if (e == ESP_ERR_INVALID_ARG) {
+            printf("[CAM] PCLK 分频只能取 4~64\n\n");
+        } else {
+            printf("[CAM] PCLK 分频 = %d（已存 NVS，复位保持）-> %s\n\n",
+                   v, esp_err_to_name(e));
+        }
+        return true;
+    }
     if (strcmp(cmd, "cam 50hz") == 0 || strcmp(cmd, "cam 50") == 0) {
         cam_jpeg_set_50hz(true);
         printf("[CAM] 已开 50 Hz 抗闪，等 1 秒看横纹是否消失\n\n");
@@ -836,6 +868,10 @@ static bool cmds_dispatch(const char *cmd)
     if (strcmp(cmd, "cam 50hz off") == 0) {
         cam_jpeg_set_50hz(false);
         printf("[CAM] 已关 50 Hz 抗闪\n\n");
+        return true;
+    }
+    if (strcmp(cmd, "cam status") == 0 || strcmp(cmd, "cam info") == 0) {
+        cam_jpeg_dump_status();
         return true;
     }
     if (strncmp(cmd, "cam dn ", 7) == 0) {

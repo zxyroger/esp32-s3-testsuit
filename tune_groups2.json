@@ -1,0 +1,26 @@
+{
+  "_comment": "第二轮：去掉有害的 RN/RO，围绕 m0/alpha/vlp/sharp 找全局最优",
+  "groups": [
+    ["C 基准 rn0ro0+m0=7+a0.7+vlpK2+sh0.4", {"rn": 0, "ro": 0, "m0": 7, "alpha": 0.7, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.4}],
+    ["C 保留 RN/RO", {"m0": 7, "alpha": 0.7, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.4}],
+    ["C sharp=0.30", {"rn": 0, "ro": 0, "m0": 7, "alpha": 0.7, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.30}],
+    ["C sharp=0.50", {"rn": 0, "ro": 0, "m0": 7, "alpha": 0.7, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.50}],
+    ["C sharp=0.65", {"rn": 0, "ro": 0, "m0": 7, "alpha": 0.7, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.65}],
+    ["C sharpOff", {"rn": 0, "ro": 0, "m0": 7, "alpha": 0.7, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharpOn": 0}],
+    ["C alpha=0.55", {"rn": 0, "ro": 0, "m0": 7, "alpha": 0.55, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.4}],
+    ["C alpha=0.85", {"rn": 0, "ro": 0, "m0": 7, "alpha": 0.85, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.4}],
+    ["C m0=4", {"rn": 0, "ro": 0, "m0": 4, "alpha": 0.7, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.4}],
+    ["C m0=10", {"rn": 0, "ro": 0, "m0": 10, "alpha": 0.7, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.4}],
+    ["C vlpK=1", {"rn": 0, "ro": 0, "m0": 7, "alpha": 0.7, "vlp": 1, "vlpK": 1, "vlpLam": 0.6, "sharp": 0.4}],
+    ["C vlpK=3", {"rn": 0, "ro": 0, "m0": 7, "alpha": 0.7, "vlp": 1, "vlpK": 3, "vlpLam": 0.6, "sharp": 0.4}],
+    ["C vlpLam=0.4", {"rn": 0, "ro": 0, "m0": 7, "alpha": 0.7, "vlp": 1, "vlpK": 2, "vlpLam": 0.4, "sharp": 0.4}],
+    ["C vlpLam=1.0", {"rn": 0, "ro": 0, "m0": 7, "alpha": 0.7, "vlp": 1, "vlpK": 2, "vlpLam": 1.0, "sharp": 0.4}],
+    ["C no FFC", {"rn": 0, "ro": 0, "m0": 7, "alpha": 0.7, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.4, "ffc": 0}],
+    ["C no EMA", {"rn": 0, "ro": 0, "m0": 7, "alpha": 0.7, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.4, "ema": 0}],
+    ["C no vlp", {"rn": 0, "ro": 0, "m0": 7, "alpha": 0.7, "vlp": 0, "sharp": 0.4}],
+    ["C vlpG0=4 Kg=6", {"rn": 0, "ro": 0, "m0": 7, "alpha": 0.7, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "vlpG0": 4, "vlpKg": 6, "sharp": 0.4}],
+    ["C vlpG0=1 Kg=12", {"rn": 0, "ro": 0, "m0": 7, "alpha": 0.7, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "vlpG0": 1, "vlpKg": 12, "sharp": 0.4}],
+    ["现状 baseline", {}]
+  ],
+  "ffc_groups": []
+}

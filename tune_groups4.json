@@ -1,0 +1,23 @@
+{
+  "_comment": "第四轮：验证「只补水平方向锐化」能否在保持横纹增益的同时把锐度拉回原始水平",
+  "groups": [
+    ["P1 E+sharpH sh0.4", {"ffc": 0, "rn": 0, "ro": 0, "m0": 7, "alpha": 0.80, "vlp": 1, "vlpK": 2, "vlpLam": 0.8, "sharp": 0.40, "sharpH": 1}],
+    ["Q1 E+sharpH sh0.6", {"ffc": 0, "rn": 0, "ro": 0, "m0": 7, "alpha": 0.80, "vlp": 1, "vlpK": 2, "vlpLam": 0.8, "sharp": 0.60, "sharpH": 1}],
+    ["R1 E+sharpH sh0.8", {"ffc": 0, "rn": 0, "ro": 0, "m0": 7, "alpha": 0.80, "vlp": 1, "vlpK": 2, "vlpLam": 0.8, "sharp": 0.80, "sharpH": 1}],
+    ["S1 E+sharpH lam0.7", {"ffc": 0, "rn": 0, "ro": 0, "m0": 7, "alpha": 0.80, "vlp": 1, "vlpK": 2, "vlpLam": 0.7, "sharp": 0.60, "sharpH": 1}],
+    ["T1 E 原样", {"ffc": 0, "rn": 0, "ro": 0, "m0": 7, "alpha": 0.80, "vlp": 1, "vlpK": 2, "vlpLam": 0.8, "sharp": 0.40}],
+    ["U1 D 原样", {"ffc": 0, "m0": 6.5, "alpha": 0.70, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.40}],
+    ["V1 D+sharpH sh0.5", {"ffc": 0, "m0": 6.5, "alpha": 0.70, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.50, "sharpH": 1}],
+    ["W1 现状", {}],
+
+    ["P2 E+sharpH sh0.4", {"ffc": 0, "rn": 0, "ro": 0, "m0": 7, "alpha": 0.80, "vlp": 1, "vlpK": 2, "vlpLam": 0.8, "sharp": 0.40, "sharpH": 1}],
+    ["Q2 E+sharpH sh0.6", {"ffc": 0, "rn": 0, "ro": 0, "m0": 7, "alpha": 0.80, "vlp": 1, "vlpK": 2, "vlpLam": 0.8, "sharp": 0.60, "sharpH": 1}],
+    ["R2 E+sharpH sh0.8", {"ffc": 0, "rn": 0, "ro": 0, "m0": 7, "alpha": 0.80, "vlp": 1, "vlpK": 2, "vlpLam": 0.8, "sharp": 0.80, "sharpH": 1}],
+    ["S2 E+sharpH lam0.7", {"ffc": 0, "rn": 0, "ro": 0, "m0": 7, "alpha": 0.80, "vlp": 1, "vlpK": 2, "vlpLam": 0.7, "sharp": 0.60, "sharpH": 1}],
+    ["T2 E 原样", {"ffc": 0, "rn": 0, "ro": 0, "m0": 7, "alpha": 0.80, "vlp": 1, "vlpK": 2, "vlpLam": 0.8, "sharp": 0.40}],
+    ["U2 D 原样", {"ffc": 0, "m0": 6.5, "alpha": 0.70, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.40}],
+    ["V2 D+sharpH sh0.5", {"ffc": 0, "m0": 6.5, "alpha": 0.70, "vlp": 1, "vlpK": 2, "vlpLam": 0.6, "sharp": 0.50, "sharpH": 1}],
+    ["W2 现状", {}]
+  ],
+  "ffc_groups": []
+}
