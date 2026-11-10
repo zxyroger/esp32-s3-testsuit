@@ -1493,6 +1493,11 @@
 
     battLast = m;
     boardSeen = Date.now();
+    /* VBUS 越界保护：AXP2101 在 USB 拔掉后该通道饱和到满量程（实测 16370 mV），
+     * 固件新版已钳成 0，这里再兜一层——旧固件在跑时也不会把 16 V 画进曲线，
+     * 否则纵轴被拉到 16 V 量级，VBAT 的 0.1 V 变化就看不见了。 */
+    const uv = m.vbus | 0;
+    if (uv > 6500 || uv < 0) m.vbus = 0;
     if (!battPaused) {
       batt.push({
         t: Date.now(),
@@ -1529,7 +1534,9 @@
 
     $('bVbat').textContent = m.vbat;
     $('bVsys').textContent = m.vsys + ' mV';
-    $('bVbus').textContent = m.vbus + ' mV';
+    /* 0 表示没有输入。AXP2101 拔掉 USB 后 VBUS 通道会饱和成 ~16.4 V，
+     * 那是悬空脚拉到参考电平，不是真的电压（USB 也就 5 V）。 */
+    $('bVbus').textContent = (m.vbus | 0) <= 0 ? '0 mV（未接入）' : m.vbus + ' mV';
     $('bPct').textContent = (m.pct === undefined || m.pct < 0) ? '—' : m.pct;
 
     const chg = m.chg | 0, dir = m.dir | 0;

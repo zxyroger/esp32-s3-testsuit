@@ -200,6 +200,18 @@ esp_err_t axp2101_read_batt(axp2101_t *d, axp2101_batt_t *out)
     (void)axp2101_read_mv(d, AXP2101_REG_ADC_VSYS_H, &out->vsys_mv);
     (void)axp2101_read_mv(d, AXP2101_REG_ADC_VBUS_H, &out->vbus_mv);
 
+    /* VBUS 通道没人接时会饱和到 ADC 满量程，不是 0。
+     * 实测：USB-C 拔掉、纯电池运行时读回 16370 mV（0x3FF2，14 位满量程 0x3FFF
+     * 的 99.9%），此时 ST1 的 VBUS_GOOD=0 说明 PMIC 自己也知道输入不存在。
+     * 这个值的成因是 VBUS 采样脚悬空后拉到参考电平，属于芯片行为而非接线错误；
+     * 而 USB 输入的物理上限就是 5 V（本板没有 PD 诱骗，拿不到 9/15/20 V），
+     * 所以超过 6500 mV 一律判为"无输入"，报 0，避免上层把 16 V 当真。
+     * 注意不能简单用 vbus_good 门控：USB 在插着、但 VBUS < VBAT+250 mV 时
+     * vbus_good 也是 0，那种情况下 5 V 读数是有意义的，要保留。 */
+    if (out->vbus_mv > AXP2101_VBUS_SANE_MAX_MV) {
+        out->vbus_mv = 0;
+    }
+
     /* 燃料计百分比：没使能时该寄存器可能保留旧值或为 0，超过 100 一律当无效 */
     uint8_t pct = 0;
     if (axp2101_read8(d, AXP2101_REG_BAT_PCT, &pct) == ESP_OK && pct <= 100) {

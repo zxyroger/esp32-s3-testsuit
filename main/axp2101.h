@@ -48,6 +48,11 @@ extern "C" {
 #define AXP2101_REG_ADC_VSYS_H 0x3A
 #define AXP2101_REG_ADC_TDIE_H 0x3C
 
+/* VBUS 读数的合理上限。USB-C 拔掉后 VBUS 采样脚悬空，AXP2101 的该通道
+ * 会饱和到接近 14 位满量程（实测 16370 mV），而 USB 供电本身不会超过 5.5 V。
+ * 超过这个门限就按“无输入 = 0”处理，见 axp2101_read_batt()。 */
+#define AXP2101_VBUS_SANE_MAX_MV 6500
+
 #define AXP2101_REG_IRQ_STAT0  0x48   /* 中断状态 1/2/3 连续三个寄存器 */
 #define AXP2101_REG_IRQ_STAT_N 3
 
